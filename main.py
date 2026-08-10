@@ -537,9 +537,8 @@ class AdminApp:
 
     def open_customers(self):
         self.open_window(
-            "customer_window.py"
-        )
-
+        "customer/customer_window.py"
+    )
     def open_rooms(self):
         self.open_window(
             "room_window.py"

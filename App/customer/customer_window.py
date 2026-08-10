@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from db import get_connection
+
 from mysql.connector import Error
 
 COLOR_BG = "#f4f6f8"
