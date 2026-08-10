@@ -547,17 +547,17 @@ class AdminApp:
 
     def open_bookings(self):
         self.open_window(
-            "booking_window.py"
+            "booking/booking_window.py"
         )
 
     def open_invoices(self):
         self.open_window(
-            "invoice_window.py"
-        )
+        "invoice/gui_invoice.py"
+    )
 
     def open_statistics(self):
         self.open_window(
-            "statistics_window.py"
+            "statistics/statistics_gui.py"
         )
 
     def update_statistics(self):
