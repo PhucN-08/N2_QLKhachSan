@@ -1,676 +1,625 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import sys
+import os
+import subprocess
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.join(BASE_DIR, "App")
+
+if APP_DIR not in sys.path:
+    sys.path.append(APP_DIR)
+
 from db import get_connection
 
 
-class CustomerFrame(tk.Frame):
-    def __init__(self, master):
-        super().__init__(master)
+BG_COLOR = "#f4f6f8"
+SIDEBAR_COLOR = "#1f2937"
+WHITE = "#ffffff"
+TEXT_COLOR = "#111827"
+GRAY = "#6b7280"
+BLUE = "#2563eb"
+CARD_BORDER = "#e5e7eb"
 
-        self.selected_id = None
 
-        self.create_widgets()
-        self.load_customers()
+class AdminApp:
+    def __init__(self, root):
+        self.root = root
 
-    # GIAO DIỆN
+        self.root.title("Hệ thống quản lý khách sạn")
+        self.root.geometry("1250x720")
+        self.root.minsize(1100, 650)
+        self.root.configure(bg=BG_COLOR)
 
-    def create_widgets(self):
+        self.create_sidebar()
+        self.create_main_area()
+
+        self.update_statistics()
+
+    def create_sidebar(self):
+        self.sidebar = tk.Frame(
+            self.root,
+            bg=SIDEBAR_COLOR,
+            width=230
+        )
+
+        self.sidebar.pack(
+            side="left",
+            fill="y"
+        )
+
+        self.sidebar.pack_propagate(False)
 
         title = tk.Label(
-            self,
-            text="CUSTOMER MANAGEMENT",
-            font=("Arial", 18, "bold")
-        )
-        title.pack(pady=10)
-
-
-        search_frame = tk.Frame(self)
-        search_frame.pack(fill="x", padx=15)
-
-        tk.Label(
-            search_frame,
-            text="Search:"
-        ).pack(side=tk.LEFT)
-
-        self.txt_search = tk.Entry(
-            search_frame,
-            width=35
-        )
-        self.txt_search.pack(
-            side=tk.LEFT,
-            padx=5
+            self.sidebar,
+            text="HOTEL",
+            bg=SIDEBAR_COLOR,
+            fg=WHITE,
+            font=("Arial", 24, "bold")
         )
 
-        tk.Button(
-            search_frame,
-            text="Search",
-            width=12,
-            command=self.search_customer
-        ).pack(side=tk.LEFT)
-
-        tk.Button(
-            search_frame,
-            text="Refresh",
-            width=12,
-            command=self.clear_form
-        ).pack(
-            side=tk.LEFT,
-            padx=5
+        title.pack(
+            pady=(35, 0)
         )
 
-
-        form = tk.LabelFrame(
-            self,
-            text="Customer Information",
-            padx=10,
-            pady=10
+        title2 = tk.Label(
+            self.sidebar,
+            text="MANAGEMENT",
+            bg=SIDEBAR_COLOR,
+            fg="#d1d5db",
+            font=("Arial", 12, "bold")
         )
 
-        form.pack(
-            fill="x",
-            padx=15,
-            pady=10
+        title2.pack(
+            pady=(0, 5)
         )
 
-        tk.Label(
-            form,
-            text="Name"
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=5
+        admin = tk.Label(
+            self.sidebar,
+            text="ADMIN",
+            bg=SIDEBAR_COLOR,
+            fg="#9ca3af",
+            font=("Arial", 10)
         )
 
-        self.txt_name = tk.Entry(
-            form,
-            width=40
+        admin.pack(
+            pady=(0, 45)
         )
 
-        self.txt_name.grid(
-            row=0,
-            column=1,
-            padx=10,
-            pady=5
+        self.create_sidebar_button(
+            "👤  Khách hàng",
+            self.open_customers
         )
 
-        tk.Label(
-            form,
-            text="Email"
-        ).grid(
-            row=1,
-            column=0,
-            sticky="w",
-            pady=5
+        self.create_sidebar_button(
+            "🏠  Quản lý phòng",
+            self.open_rooms
         )
 
-        self.txt_email = tk.Entry(
-            form,
-            width=40
+        self.create_sidebar_button(
+            "📅  Đặt phòng",
+            self.open_bookings
         )
 
-        self.txt_email.grid(
-            row=1,
-            column=1,
-            padx=10,
-            pady=5
+        self.create_sidebar_button(
+            "💵  Hóa đơn / Thanh toán",
+            self.open_invoices
         )
 
-        tk.Label(
-            form,
-            text="Phone"
-        ).grid(
-            row=2,
-            column=0,
-            sticky="w",
-            pady=5
+        self.create_sidebar_button(
+            "📊  Thống kê",
+            self.open_statistics
         )
 
-        self.txt_phone = tk.Entry(
-            form,
-            width=40
+        spacer = tk.Frame(
+            self.sidebar,
+            bg=SIDEBAR_COLOR
         )
 
-        self.txt_phone.grid(
-            row=2,
-            column=1,
-            padx=10,
-            pady=5
-        )
-
-        tk.Label(
-            form,
-            text="Address"
-        ).grid(
-            row=3,
-            column=0,
-            sticky="w",
-            pady=5
-        )
-
-        self.txt_address = tk.Entry(
-            form,
-            width=40
-        )
-
-        self.txt_address.grid(
-            row=3,
-            column=1,
-            padx=10,
-            pady=5
-        )
-
-
-        button_frame = tk.Frame(self)
-        button_frame.pack(pady=10)
-
-        tk.Button(
-            button_frame,
-            text="Add",
-            width=12,
-            command=self.add_customer
-        ).grid(
-            row=0,
-            column=0,
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="Update",
-            width=12,
-            command=self.update_customer
-        ).grid(
-            row=0,
-            column=1,
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="Delete",
-            width=12,
-            command=self.delete_customer
-        ).grid(
-            row=0,
-            column=2,
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="Clear",
-            width=12,
-            command=self.clear_form
-        ).grid(
-            row=0,
-            column=3,
-            padx=5
-        )
-
-      
-
-        table_frame = tk.Frame(self)
-        table_frame.pack(
-            fill="both",
-            expand=True,
-            padx=15,
-            pady=10
-        )
-
-        columns = (
-            "id",
-            "name",
-            "email",
-            "phone",
-            "address"
-        )
-
-        self.tree = ttk.Treeview(
-            table_frame,
-            columns=columns,
-            show="headings",
-            height=15
-        )
-
-        self.tree.heading("id", text="ID")
-        self.tree.heading("name", text="Name")
-        self.tree.heading("email", text="Email")
-        self.tree.heading("phone", text="Phone")
-        self.tree.heading("address", text="Address")
-
-        self.tree.column(
-            "id",
-            width=60,
-            anchor="center"
-        )
-
-        self.tree.column(
-            "name",
-            width=180
-        )
-
-        self.tree.column(
-            "email",
-            width=220
-        )
-
-        self.tree.column(
-            "phone",
-            width=120
-        )
-
-        self.tree.column(
-            "address",
-            width=250
-        )
-
-        scrollbar = ttk.Scrollbar(
-            table_frame,
-            orient="vertical",
-            command=self.tree.yview
-        )
-
-        self.tree.configure(
-            yscrollcommand=scrollbar.set
-        )
-
-        self.tree.pack(
-            side=tk.LEFT,
-            fill=tk.BOTH,
+        spacer.pack(
             expand=True
         )
 
-        scrollbar.pack(
-            side=tk.RIGHT,
-            fill=tk.Y
+        exit_button = tk.Button(
+            self.sidebar,
+            text="🚪  Thoát",
+            command=self.exit_program,
+            bg="#374151",
+            fg=WHITE,
+            activebackground="#4b5563",
+            activeforeground=WHITE,
+            relief="flat",
+            bd=0,
+            font=("Arial", 10),
+            cursor="hand2",
+            height=2
         )
 
-        self.tree.bind(
-            "<<TreeviewSelect>>",
-            self.on_tree_select
-        )
-    # HIỂN THỊ DỮ LIỆU
-
-    def load_customers(self):
-
-        self.clear_table()
-
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            sql = """
-                SELECT id, name, email, phone, address
-                FROM customers
-                ORDER BY id
-            """
-
-            cursor.execute(sql)
-
-            rows = cursor.fetchall()
-
-            for row in rows:
-                self.tree.insert("", tk.END, values=row)
-
-        except Exception as e:
-            messagebox.showerror(
-                "Database Error",
-                str(e)
-            )
-
-        finally:
-            cursor.close()
-            conn.close()
-
-    # XÓA DỮ LIỆU TRONG TABLE
-
-    def clear_table(self):
-
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-    # XÓA DỮ LIỆU TRÊN FORM
-
-    def clear_form(self):
-
-        self.selected_id = None
-
-        self.txt_name.delete(0, tk.END)
-        self.txt_email.delete(0, tk.END)
-        self.txt_phone.delete(0, tk.END)
-        self.txt_address.delete(0, tk.END)
-        self.txt_search.delete(0, tk.END)
-
-        self.load_customers()
-
-    # CLICK TREEVIEW
-
-    def on_tree_select(self, event):
-
-        selected = self.tree.selection()
-
-        if not selected:
-            return
-
-        values = self.tree.item(selected[0], "values")
-
-        self.selected_id = values[0]
-
-        self.txt_name.delete(0, tk.END)
-        self.txt_email.delete(0, tk.END)
-        self.txt_phone.delete(0, tk.END)
-        self.txt_address.delete(0, tk.END)
-
-        self.txt_name.insert(0, values[1])
-        self.txt_email.insert(0, values[2])
-        self.txt_phone.insert(0, values[3])
-        self.txt_address.insert(0, values[4])
-
-    # KIỂM TRA DỮ LIỆU
-
-    def validate_input(self):
-
-        name = self.txt_name.get().strip()
-        email = self.txt_email.get().strip()
-        phone = self.txt_phone.get().strip()
-
-        if name == "":
-            messagebox.showwarning(
-                "Warning",
-                "Customer name cannot be empty!"
-            )
-            return False
-
-        if email != "" and "@" not in email:
-            messagebox.showwarning(
-                "Warning",
-                "Invalid email!"
-            )
-            return False
-
-        if phone != "" and not phone.isdigit():
-            messagebox.showwarning(
-                "Warning",
-                "Phone number must contain only digits!"
-            )
-            return False
-
-        return True
-    # THÊM KHÁCH HÀNG
-    
-
-    def add_customer(self):
-
-        if not self.validate_input():
-            return
-
-        name = self.txt_name.get().strip()
-        email = self.txt_email.get().strip()
-        phone = self.txt_phone.get().strip()
-        address = self.txt_address.get().strip()
-
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            sql = """
-                INSERT INTO customers(name, email, phone, address)
-                VALUES(%s, %s, %s, %s)
-            """
-
-            cursor.execute(
-                sql,
-                (name, email, phone, address)
-            )
-
-            conn.commit()
-
-            messagebox.showinfo(
-                "Success",
-                "Customer added successfully!"
-            )
-
-            self.clear_form()
-
-        except Exception as e:
-
-            messagebox.showerror(
-                "Database Error",
-                str(e)
-            )
-
-        finally:
-
-            cursor.close()
-            conn.close()
-
-    # CẬP NHẬT KHÁCH HÀNG
-
-    def update_customer(self):
-
-        if self.selected_id is None:
-
-            messagebox.showwarning(
-                "Warning",
-                "Please select a customer!"
-            )
-
-            return
-
-        if not self.validate_input():
-            return
-
-        name = self.txt_name.get().strip()
-        email = self.txt_email.get().strip()
-        phone = self.txt_phone.get().strip()
-        address = self.txt_address.get().strip()
-
-        try:
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            sql = """
-                UPDATE customers
-                SET
-                    name=%s,
-                    email=%s,
-                    phone=%s,
-                    address=%s
-                WHERE id=%s
-            """
-
-            cursor.execute(
-                sql,
-                (
-                    name,
-                    email,
-                    phone,
-                    address,
-                    self.selected_id
-                )
-            )
-
-            conn.commit()
-
-            if cursor.rowcount > 0:
-
-                messagebox.showinfo(
-                    "Success",
-                    "Customer updated successfully!"
-                )
-
-            else:
-
-                messagebox.showwarning(
-                    "Notice",
-                    "No data changed."
-                )
-
-            self.clear_form()
-
-        except Exception as e:
-
-            messagebox.showerror(
-                "Database Error",
-                str(e)
-            )
-
-        finally:
-
-            cursor.close()
-            conn.close()
-
-    # XÓA KHÁCH HÀNG
-
-    def delete_customer(self):
-
-        if self.selected_id is None:
-
-            messagebox.showwarning(
-                "Warning",
-                "Please select a customer!"
-            )
-
-            return
-
-        answer = messagebox.askyesno(
-            "Confirm",
-            "Are you sure you want to delete this customer?"
+        exit_button.pack(
+            fill="x",
+            padx=20,
+            pady=20
         )
 
-        if not answer:
+    def create_sidebar_button(self, text, command):
+        button = tk.Button(
+            self.sidebar,
+            text=text,
+            command=command,
+            bg=SIDEBAR_COLOR,
+            fg=WHITE,
+            activebackground="#374151",
+            activeforeground=WHITE,
+            relief="flat",
+            bd=0,
+            anchor="w",
+            font=("Arial", 11),
+            cursor="hand2",
+            padx=25,
+            height=2
+        )
+
+        button.pack(
+            fill="x",
+            padx=10,
+            pady=4
+        )
+
+    def create_main_area(self):
+        self.main = tk.Frame(
+            self.root,
+            bg=BG_COLOR
+        )
+
+        self.main.pack(
+            side="right",
+            fill="both",
+            expand=True
+        )
+
+        # HEADER
+        header = tk.Frame(
+            self.main,
+            bg=WHITE,
+            height=80
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        title = tk.Label(
+            header,
+            text="TRANG QUẢN TRỊ",
+            bg=WHITE,
+            fg=TEXT_COLOR,
+            font=("Arial", 22, "bold")
+        )
+
+        title.pack(
+            side="left",
+            padx=30
+        )
+
+        admin_label = tk.Label(
+            header,
+            text="Xin chào, Admin",
+            bg=WHITE,
+            fg=GRAY,
+            font=("Arial", 11)
+        )
+
+        admin_label.pack(
+            side="right",
+            padx=30
+        )
+
+        # CONTENT
+        self.content = tk.Frame(
+            self.main,
+            bg=BG_COLOR
+        )
+
+        self.content.pack(
+            fill="both",
+            expand=True,
+            padx=30,
+            pady=25
+        )
+
+        title = tk.Label(
+            self.content,
+            text="Tổng quan hệ thống",
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+            font=("Arial", 19, "bold")
+        )
+
+        title.pack(
+            anchor="w",
+            pady=(0, 18)
+        )
+
+        # 4 CARD THỐNG KÊ NHANH
+        self.create_quick_statistics()
+
+        function_title = tk.Label(
+            self.content,
+            text="Chức năng quản lý",
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+            font=("Arial", 16, "bold")
+        )
+
+        function_title.pack(
+            anchor="w",
+            pady=(30, 15)
+        )
+
+        self.create_function_grid()
+
+    def create_quick_statistics(self):
+        frame = tk.Frame(
+            self.content,
+            bg=BG_COLOR
+        )
+
+        frame.pack(
+            fill="x"
+        )
+
+        self.customer_value = self.create_quick_card(
+            frame,
+            "KHÁCH HÀNG"
+        )
+
+        self.room_value = self.create_quick_card(
+            frame,
+            "PHÒNG"
+        )
+
+        self.booking_value = self.create_quick_card(
+            frame,
+            "ĐẶT PHÒNG"
+        )
+
+        self.invoice_value = self.create_quick_card(
+            frame,
+            "HÓA ĐƠN"
+        )
+
+    def create_quick_card(self, parent, title):
+        card = tk.Frame(
+            parent,
+            bg=WHITE,
+            height=110,
+            highlightbackground=CARD_BORDER,
+            highlightthickness=1
+        )
+
+        card.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=5
+        )
+
+        card.pack_propagate(False)
+
+        label = tk.Label(
+            card,
+            text=title,
+            bg=WHITE,
+            fg=GRAY,
+            font=("Arial", 10, "bold")
+        )
+
+        label.pack(
+            pady=(18, 5)
+        )
+
+        value = tk.Label(
+            card,
+            text="0",
+            bg=WHITE,
+            fg=BLUE,
+            font=("Arial", 27, "bold")
+        )
+
+        value.pack()
+
+        return value
+
+    def create_function_grid(self):
+        grid = tk.Frame(
+            self.content,
+            bg=BG_COLOR
+        )
+
+        grid.pack(
+            fill="both",
+            expand=True
+        )
+
+        # Hàng 1
+        grid.rowconfigure(0, weight=1)
+        grid.rowconfigure(1, weight=1)
+
+        grid.columnconfigure(0, weight=1)
+        grid.columnconfigure(1, weight=1)
+        grid.columnconfigure(2, weight=1)
+
+        self.create_function_card(
+            grid,
+            0,
+            0,
+            "👤",
+            "Quản lý khách hàng",
+            "Thêm, sửa, xóa và tìm kiếm khách hàng",
+            self.open_customers
+        )
+
+        self.create_function_card(
+            grid,
+            0,
+            1,
+            "🏠",
+            "Quản lý phòng",
+            "Quản lý thông tin và trạng thái phòng",
+            self.open_rooms
+        )
+
+        self.create_function_card(
+            grid,
+            0,
+            2,
+            "📅",
+            "Quản lý đặt phòng",
+            "Đặt phòng, check-in, check-out và đổi phòng",
+            self.open_bookings
+        )
+
+        self.create_function_card(
+            grid,
+            1,
+            0,
+            "💵",
+            "Hóa đơn / Thanh toán",
+            "Tạo, cập nhật và xuất hóa đơn",
+            self.open_invoices
+        )
+
+        self.create_function_card(
+            grid,
+            1,
+            1,
+            "📊",
+            "Thống kê",
+            "Xem doanh thu và thống kê hoạt động khách sạn",
+            self.open_statistics
+        )
+
+        # Ô trống
+        empty = tk.Frame(
+            grid,
+            bg=BG_COLOR
+        )
+
+        empty.grid(
+            row=1,
+            column=2,
+            sticky="nsew",
+            padx=(7, 0),
+            pady=(7, 0)
+        )
+
+    def create_function_card(
+        self,
+        parent,
+        row,
+        column,
+        icon,
+        title,
+        description,
+        command
+    ):
+        card = tk.Frame(
+            parent,
+            bg=WHITE,
+            highlightbackground=CARD_BORDER,
+            highlightthickness=1,
+            cursor="hand2"
+        )
+
+        card.grid(
+            row=row,
+            column=column,
+            sticky="nsew",
+            padx=7,
+            pady=7
+        )
+
+        icon_label = tk.Label(
+            card,
+            text=icon,
+            bg=WHITE,
+            fg=BLUE,
+            font=("Arial", 25)
+        )
+
+        icon_label.pack(
+            pady=(18, 5)
+        )
+
+        title_label = tk.Label(
+            card,
+            text=title,
+            bg=WHITE,
+            fg=TEXT_COLOR,
+            font=("Arial", 13, "bold")
+        )
+
+        title_label.pack(
+            pady=3
+        )
+
+        description_label = tk.Label(
+            card,
+            text=description,
+            bg=WHITE,
+            fg=GRAY,
+            font=("Arial", 9),
+            wraplength=230
+        )
+
+        description_label.pack(
+            pady=(5, 15)
+        )
+
+        # Cho phép click toàn bộ ô
+        widgets = [
+            card,
+            icon_label,
+            title_label,
+            description_label
+        ]
+
+        for widget in widgets:
+            widget.bind(
+                "<Button-1>",
+                lambda event: command()
+            )
+
+            widget.bind(
+                "<Enter>",
+                lambda event: self.card_hover(event, True)
+            )
+
+            widget.bind(
+                "<Leave>",
+                lambda event: self.card_hover(event, False)
+            )
+
+    def card_hover(self, event, entering):
+        widget = event.widget
+
+        if entering:
+            widget.configure(
+                cursor="hand2"
+            )
+
+    def open_window(self, filename):
+        path = os.path.join(
+            APP_DIR,
+            filename
+        )
+
+        if not os.path.exists(path):
+            messagebox.showerror(
+                "Lỗi",
+                f"Không tìm thấy chức năng:\n\n{filename}"
+            )
             return
 
         try:
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            sql = """
-                DELETE FROM customers
-                WHERE id=%s
-            """
-
-            cursor.execute(
-                sql,
-                (self.selected_id,)
+            subprocess.Popen(
+                [sys.executable, path],
+                cwd=BASE_DIR
             )
-
-            conn.commit()
-
-            if cursor.rowcount > 0:
-
-                messagebox.showinfo(
-                    "Success",
-                    "Customer deleted successfully!"
-                )
-
-            else:
-
-                messagebox.showwarning(
-                    "Notice",
-                    "Customer not found."
-                )
-
-            self.clear_form()
 
         except Exception as e:
-
             messagebox.showerror(
-                "Database Error",
-                str(e)
+                "Lỗi",
+                f"Không thể mở chức năng:\n\n{e}"
             )
 
-        finally:
+    def open_customers(self):
+        self.open_window(
+            "customer_window.py"
+        )
 
-            cursor.close()
-            conn.close()
-      
-    # TÌM KIẾM KHÁCH HÀNG
+    def open_rooms(self):
+        self.open_window(
+            "room_window.py"
+        )
 
-    def search_customer(self):
+    def open_bookings(self):
+        self.open_window(
+            "booking_window.py"
+        )
 
-        keyword = self.txt_search.get().strip()
+    def open_invoices(self):
+        self.open_window(
+            "invoice_window.py"
+        )
 
-        self.clear_table()
+    def open_statistics(self):
+        self.open_window(
+            "statistics_window.py"
+        )
 
+    def update_statistics(self):
         try:
-
             conn = get_connection()
             cursor = conn.cursor()
 
-            sql = """
-                SELECT
-                    id,
-                    name,
-                    email,
-                    phone,
-                    address
-                FROM customers
-                WHERE
-                    name LIKE %s
-                    OR email LIKE %s
-                    OR phone LIKE %s
-                ORDER BY id
-            """
-
-            search = "%" + keyword + "%"
+            cursor.execute(
+                "SELECT COUNT(*) FROM customers"
+            )
+            customers = cursor.fetchone()[0]
 
             cursor.execute(
-                sql,
-                (
-                    search,
-                    search,
-                    search
-                )
+                "SELECT COUNT(*) FROM rooms"
             )
+            rooms = cursor.fetchone()[0]
 
-            rows = cursor.fetchall()
-
-            for row in rows:
-
-                self.tree.insert(
-                    "",
-                    tk.END,
-                    values=row
-                )
-
-            if len(rows) == 0:
-
-                messagebox.showinfo(
-                    "Notice",
-                    "No matching customers found."
-                )
-
-        except Exception as e:
-
-            messagebox.showerror(
-                "Database Error",
-                str(e)
+            cursor.execute(
+                "SELECT COUNT(*) FROM bookings"
             )
+            bookings = cursor.fetchone()[0]
 
-        finally:
+            cursor.execute(
+                "SELECT COUNT(*) FROM invoices"
+            )
+            invoices = cursor.fetchone()[0]
 
             cursor.close()
             conn.close()
 
+            self.customer_value.config(
+                text=str(customers)
+            )
 
-# TEST
+            self.room_value.config(
+                text=str(rooms)
+            )
+
+            self.booking_value.config(
+                text=str(bookings)
+            )
+
+            self.invoice_value.config(
+                text=str(invoices)
+            )
+
+        except Exception as e:
+            print("Không thể cập nhật thống kê nhanh:", e)
+
+    def exit_program(self):
+        result = messagebox.askyesno(
+            "Xác nhận",
+            "Bạn có chắc muốn thoát chương trình không?"
+        )
+
+        if result:
+            self.root.destroy()
 
 
 if __name__ == "__main__":
-
     root = tk.Tk()
 
-    root.title("Customer Management")
-
-    root.geometry("900x650")
-
-    CustomerFrame(root).pack(
-        fill="both",
-        expand=True
-    )
+    app = AdminApp(root)
 
     root.mainloop()
