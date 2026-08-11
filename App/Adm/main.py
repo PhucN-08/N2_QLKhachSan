@@ -1,17 +1,18 @@
 import tkinter as tk
-from tkinter import messagebox
-import sys
+from tkinter import ttk, messagebox
 import os
+import sys
 import subprocess
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_DIR = os.path.join(BASE_DIR, "App")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-if APP_DIR not in sys.path:
-    sys.path.append(APP_DIR)
+sys.path.append(
+    os.path.abspath(
+        os.path.join(APP_DIR, "..", "..")
+    )
+)
 
 from db import get_connection
-
 
 BG_COLOR = "#f4f6f8"
 SIDEBAR_COLOR = "#1f2937"
@@ -71,21 +72,10 @@ class AdminApp:
         )
 
         title2.pack(
-            pady=(0, 5)
-        )
-
-        admin = tk.Label(
-            self.sidebar,
-            text="ADMIN",
-            bg=SIDEBAR_COLOR,
-            fg="#9ca3af",
-            font=("Arial", 10)
-        )
-
-        admin.pack(
             pady=(0, 45)
         )
 
+       
         self.create_sidebar_button(
             "👤  Khách hàng",
             self.open_customers
@@ -203,17 +193,24 @@ class AdminApp:
             padx=30
         )
 
-        admin_label = tk.Label(
+        refresh_button = tk.Button(
             header,
-            text="Xin chào, Admin",
+            text="Làm mới",
+            command=self.update_statistics,
             bg=WHITE,
-            fg=GRAY,
-            font=("Arial", 11)
-        )
+            fg=BLUE,
+            activebackground="#eff6ff",
+            activeforeground=BLUE,
+            relief="flat",
+            bd=0,
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            padx=10
+)
 
-        admin_label.pack(
+        refresh_button.pack(
             side="right",
-            padx=30
+            padx=20
         )
 
         # CONTENT
@@ -526,7 +523,7 @@ class AdminApp:
         try:
             subprocess.Popen(
                 [sys.executable, path],
-                cwd=BASE_DIR
+                cwd=APP_DIR
             )
 
         except Exception as e:
@@ -536,28 +533,23 @@ class AdminApp:
             )
 
     def open_customers(self):
-        self.open_window(
-        "customer/customer_window.py"
-    )
+        self.open_window("customer_window.py")
+
+
     def open_rooms(self):
-        self.open_window(
-            "room_window.py"
-        )
+        self.open_window("room_window.py")
+
 
     def open_bookings(self):
-        self.open_window(
-            "booking/booking_window.py"
-        )
+        self.open_window("booking_window.py")
+
 
     def open_invoices(self):
-        self.open_window(
-        "invoice/gui_invoice.py"
-    )
+        self.open_window("gui_invoice.py")
+
 
     def open_statistics(self):
-        self.open_window(
-            "statistics/statistics_gui.py"
-        )
+        self.open_window("statistics_gui.py")
 
     def update_statistics(self):
         try:

@@ -1194,10 +1194,11 @@ class BookingWindow(tk.Frame):
             "checkout",
             "actual_checkin",
             "actual_checkout",
+            "extended_hours",
+            "extra_fee",
             "status",
             "booking_date"
         )
-
         headers = {
             "id": "Mã ĐP",
             "customer": "Khách hàng",
@@ -1206,6 +1207,8 @@ class BookingWindow(tk.Frame):
             "checkout": "Check-out dự kiến",
             "actual_checkin": "Check-in thực tế",
             "actual_checkout": "Check-out thực tế",
+            "extended_hours": "Quá giờ",
+            "extra_fee": "Phí quá giờ",
             "status": "Trạng thái",
             "booking_date": "Ngày đặt"
         }
@@ -1218,6 +1221,8 @@ class BookingWindow(tk.Frame):
             "checkout": 120,
             "actual_checkin": 140,
             "actual_checkout": 140,
+            "extended_hours": 80,
+            "extra_fee": 110,
             "status": 120,
             "booking_date": 140
         }
@@ -1238,6 +1243,15 @@ class BookingWindow(tk.Frame):
             table_wrap,
             columns=columns,
             show="headings"
+        )
+        hsb = ttk.Scrollbar(
+            table_wrap,
+            orient="horizontal",
+            command=self.tree.xview
+        )
+
+        self.tree.configure(
+            xscrollcommand=hsb.set
         )
 
         for col in columns:
@@ -1265,7 +1279,7 @@ class BookingWindow(tk.Frame):
         )
 
         self.tree.pack(
-            side="left",
+            side="top",
             fill="both",
             expand=True
         )
@@ -1273,6 +1287,11 @@ class BookingWindow(tk.Frame):
         vsb.pack(
             side="right",
             fill="y"
+        )
+
+        hsb.pack(
+            side="bottom",
+            fill="x"
         )
 
         # Dòng xen màu
@@ -1421,6 +1440,8 @@ class BookingWindow(tk.Frame):
                     format_date_vi(b["checkout_date"]),
                     format_date_vi(b["actual_checkin"]),
                     format_date_vi(b["actual_checkout"]),
+                    f"{b['extended_hours']} giờ",
+                    f"{float(b['extra_fee']):,.0f} VNĐ",
                     STATUS_LABELS_VI.get(
                         b["status"],
                         b["status"]
