@@ -228,19 +228,128 @@ root.title("Quản lý phòng khách sạn")
 root.geometry("1000x600")
 root.minsize(900, 550)
 
+# ================= COLORS =================
+
+NAVY = "#1F3F64"
+NAVY_DARK = "#173451"
+BACKGROUND = "#F3F5F7"
+WHITE = "#FFFFFF"
+LIGHT_BLUE = "#E8EEF5"
+BORDER = "#D6DDE5"
+TEXT = "#243447"
+GRAY = "#7F8C8D"
+GREEN = "#20B26B"
+GREEN_DARK = "#17965A"
+BLUE = "#2684C2"
+BLUE_DARK = "#1C6C9F"
+RED = "#D63C32"
+RED_DARK = "#B52F27"
+ORANGE = "#E67E22"
+ORANGE_DARK = "#C96316"
+
+
+root.configure(bg=BACKGROUND)
+
+# ---------- ttk Style ----------
+
+style = ttk.Style()
+style.theme_use("clam")
+
+style.configure(
+    "Treeview",
+    background=WHITE,
+    fieldbackground=WHITE,
+    foreground=TEXT,
+    rowheight=32,
+    borderwidth=0,
+    font=("Arial", 10)
+)
+
+style.configure(
+    "Treeview.Heading",
+    background=LIGHT_BLUE,
+    foreground=TEXT,
+    font=("Arial", 10, "bold"),
+    padding=8,
+    relief="flat"
+)
+
+style.map(
+    "Treeview",
+    background=[("selected", "#DCEAF7")],
+    foreground=[("selected", TEXT)]
+)
+
+style.configure(
+    "TCombobox",
+    fieldbackground=WHITE,
+    background=WHITE,
+    foreground=TEXT,
+    bordercolor=BORDER,
+    lightcolor=BORDER,
+    darkcolor=BORDER
+)
+
+
 # ---------- Title ----------
 
-tk.Label(
+header = tk.Frame(
     root,
+    bg=NAVY,
+    height=70
+)
+header.pack(fill="x")
+header.pack_propagate(False)
+
+tk.Label(
+    header,
     text="QUẢN LÝ PHÒNG KHÁCH SẠN",
+    bg=NAVY,
+    fg=WHITE,
     font=("Arial", 20, "bold")
-).pack(pady=15)
+).pack(side="left", padx=25)
 
 
 # ---------- Form ----------
 
-form = tk.Frame(root)
-form.pack(padx=20, fill="x")
+form_container = tk.Frame(
+    root,
+    bg=WHITE,
+    highlightbackground=BORDER,
+    highlightthickness=1
+)
+form_container.pack(
+    padx=15,
+    pady=(15, 10),
+    fill="x"
+)
+
+tk.Label(
+    form_container,
+    text="Thông tin phòng",
+    bg=WHITE,
+    fg=TEXT,
+    font=("Arial", 12, "bold")
+).grid(
+    row=0,
+    column=0,
+    columnspan=4,
+    sticky="w",
+    padx=25,
+    pady=(18, 10)
+)
+
+form = tk.Frame(
+    form_container,
+    bg=WHITE
+)
+form.grid(
+    row=1,
+    column=0,
+    columnspan=4,
+    sticky="ew",
+    padx=25
+)
 
 id_var = tk.StringVar()
 number_var = tk.StringVar()
@@ -249,101 +358,236 @@ status_var = tk.StringVar(value="Empty")
 price_var = tk.StringVar()
 image_var = tk.StringVar()
 
-tk.Label(form, text="ID").grid(row=0, column=0, padx=5, pady=5)
+tk.Label(
+    form,
+    text="ID",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
+
 tk.Entry(
     form,
     textvariable=id_var,
     state="readonly",
-    width=15
-).grid(row=0, column=1, padx=5, pady=5)
+    width=15,
+    bg="#F5F6F7",
+    readonlybackground="#F5F6F7",
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(row=0, column=1, padx=(0, 25), pady=6)
 
-tk.Label(form, text="Số phòng").grid(row=0, column=2, padx=5, pady=5)
+tk.Label(
+    form,
+    text="Số phòng",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=0, column=2, padx=(0, 8), pady=6, sticky="w")
+
 tk.Entry(
     form,
     textvariable=number_var,
-    width=20
-).grid(row=0, column=3, padx=5, pady=5)
+    width=20,
+    bg=WHITE,
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(row=0, column=3, padx=(0, 25), pady=6)
 
-tk.Label(form, text="Loại phòng").grid(row=1, column=0, padx=5, pady=5)
+tk.Label(
+    form,
+    text="Loại phòng",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=1, column=0, padx=(0, 8), pady=6, sticky="w")
+
 ttk.Combobox(
     form,
     textvariable=type_var,
     values=TYPES,
     state="readonly",
     width=18
-).grid(row=1, column=1, padx=5, pady=5)
+).grid(row=1, column=1, padx=(0, 25), pady=6)
 
-tk.Label(form, text="Trạng thái").grid(row=1, column=2, padx=5, pady=5)
+tk.Label(
+    form,
+    text="Trạng thái",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=1, column=2, padx=(0, 8), pady=6, sticky="w")
+
 ttk.Combobox(
     form,
     textvariable=status_var,
     values=STATUSES,
     state="readonly",
     width=18
-).grid(row=1, column=3, padx=5, pady=5)
+).grid(row=1, column=3, padx=(0, 25), pady=6)
 
-tk.Label(form, text="Giá/ngày").grid(row=2, column=0, padx=5, pady=5)
+tk.Label(
+    form,
+    text="Giá/ngày",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=2, column=0, padx=(0, 8), pady=6, sticky="w")
+
 tk.Entry(
     form,
     textvariable=price_var,
-    width=20
-).grid(row=2, column=1, padx=5, pady=5)
+    width=20,
+    bg=WHITE,
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(row=2, column=1, padx=(0, 25), pady=6)
 
-tk.Label(form, text="Image URL").grid(row=2, column=2, padx=5, pady=5)
+tk.Label(
+    form,
+    text="Image URL",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(row=2, column=2, padx=(0, 8), pady=6, sticky="w")
+
 tk.Entry(
     form,
     textvariable=image_var,
-    width=40
-).grid(row=2, column=3, padx=5, pady=5)
+    width=40,
+    bg=WHITE,
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(row=2, column=3, padx=(0, 25), pady=6)
 
 
 # ---------- Buttons ----------
 
-buttons = tk.Frame(root)
-buttons.pack(pady=15)
+buttons = tk.Frame(
+    form_container,
+    bg=WHITE
+)
+buttons.grid(
+    row=2,
+    column=0,
+    columnspan=4,
+    sticky="w",
+    padx=25,
+    pady=(10, 20)
+)
 
 tk.Button(
     buttons,
     text="Thêm phòng",
     width=15,
-    command=add
-).pack(side="left", padx=5)
+    command=add,
+    bg=GREEN,
+    fg=WHITE,
+    activebackground=GREEN_DARK,
+    activeforeground=WHITE,
+    relief="flat",
+    bd=0,
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=8,
+    cursor="hand2"
+).pack(side="left", padx=(0, 10))
 
 tk.Button(
     buttons,
     text="Cập nhật",
     width=15,
-    command=update
-).pack(side="left", padx=5)
+    command=update,
+    bg=BLUE,
+    fg=WHITE,
+    activebackground=BLUE_DARK,
+    activeforeground=WHITE,
+    relief="flat",
+    bd=0,
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=8,
+    cursor="hand2"
+).pack(side="left", padx=10)
 
 tk.Button(
     buttons,
     text="Xóa phòng",
     width=15,
-    command=delete
-).pack(side="left", padx=5)
+    command=delete,
+    bg=RED,
+    fg=WHITE,
+    activebackground=RED_DARK,
+    activeforeground=WHITE,
+    relief="flat",
+    bd=0,
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=8,
+    cursor="hand2"
+).pack(side="left", padx=10)
 
 tk.Button(
     buttons,
     text="Vô hiệu hóa",
     width=15,
-    command=deactivate
-).pack(side="left", padx=5)
+    command=deactivate,
+    bg=ORANGE,
+    fg=WHITE,
+    activebackground=ORANGE_DARK,
+    activeforeground=WHITE,
+    relief="flat",
+    bd=0,
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=8,
+    cursor="hand2"
+).pack(side="left", padx=10)
 
 tk.Button(
     buttons,
     text="Làm mới",
     width=15,
-    command=lambda: [clear_form(), refresh()]
-).pack(side="left", padx=5)
+    command=lambda: [clear_form(), refresh()],
+    bg=GRAY,
+    fg=WHITE,
+    activebackground="#687778",
+    activeforeground=WHITE,
+    relief="flat",
+    bd=0,
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=8,
+    cursor="hand2"
+).pack(side="left", padx=10)
 
 
 # ---------- Table ----------
 
-table_frame = tk.Frame(root)
+table_container = tk.Frame(
+    root,
+    bg=WHITE,
+    highlightbackground=BORDER,
+    highlightthickness=1
+)
+table_container.pack(
+    padx=15,
+    pady=(0, 15),
+    fill="both",
+    expand=True
+)
+
+table_frame = tk.Frame(
+    table_container,
+    bg=WHITE
+)
 table_frame.pack(
-    padx=20,
-    pady=5,
+    padx=15,
+    pady=15,
     fill="both",
     expand=True
 )
@@ -382,8 +626,15 @@ widths = {
 }
 
 for column in columns:
-    table.heading(column, text=headers[column])
-    table.column(column, width=widths[column], anchor="center")
+    table.heading(
+        column,
+        text=headers[column]
+    )
+    table.column(
+        column,
+        width=widths[column],
+        anchor="center"
+    )
 
 scrollbar = ttk.Scrollbar(
     table_frame,
@@ -391,12 +642,25 @@ scrollbar = ttk.Scrollbar(
     command=table.yview
 )
 
-table.configure(yscrollcommand=scrollbar.set)
+table.configure(
+    yscrollcommand=scrollbar.set
+)
 
-table.pack(side="left", fill="both", expand=True)
-scrollbar.pack(side="right", fill="y")
+table.pack(
+    side="left",
+    fill="both",
+    expand=True
+)
 
-table.bind("<<TreeviewSelect>>", select_room)
+scrollbar.pack(
+    side="right",
+    fill="y"
+)
+
+table.bind(
+    "<<TreeviewSelect>>",
+    select_room
+)
 
 refresh()
 
