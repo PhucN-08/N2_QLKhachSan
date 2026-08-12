@@ -3,6 +3,8 @@ from tkinter import ttk, messagebox
 from datetime import datetime, date
 from mysql.connector import Error
 
+from booking_supply_window import open_booking_supply_window
+
 import sys
 import os
 
@@ -702,6 +704,7 @@ class BookingWindow(tk.Frame):
             "ChangeRoom": ("#16a085", "#0e6655"),
             "Reset": ("#7f8c8d", "#616a6b"),
             "Search": ("#1f3a5f", "#152a45"),
+            "Supply": ("#f39c12", "#d68910"),
         }
 
         for name, (base, active) in button_specs.items():
@@ -1011,6 +1014,15 @@ class BookingWindow(tk.Frame):
             text="Đổi phòng",
             style="ChangeRoom.TButton",
             command=self.on_change_room
+        ).pack(
+            side="left",
+            padx=8
+        )
+        ttk.Button(
+            toolbar,
+            text="Vật tư",
+            style="Supply.TButton",
+            command=self.on_supply
         ).pack(
             side="left",
             padx=8
@@ -1789,6 +1801,17 @@ class BookingWindow(tk.Frame):
                 "Lỗi",
                 msg
             )
+# Mở cửa sổ quản lý vật tư của Booking đang được chọn
+    def on_supply(self):
+        booking_id = self.get_selected_id()
+
+        if booking_id is None:
+            return
+
+        open_booking_supply_window(
+            self,
+            booking_id
+    )
 
 
 if __name__ == "__main__":

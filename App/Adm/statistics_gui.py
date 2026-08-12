@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 
-import statistics_service as rpt_srv
+import App.Adm.statistics_service as rpt_srv
 
 
 class ReportFrame(tk.Frame):

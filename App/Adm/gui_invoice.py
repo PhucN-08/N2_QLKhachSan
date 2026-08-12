@@ -8,7 +8,7 @@ Total / Status / Payment  +  nút Create / Update / Export / Clear
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-import invoice_service as inv_srv
+import App.Adm.invoice_service as inv_srv
 
 
 class InvoiceFrame(tk.Frame):
