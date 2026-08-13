@@ -6,21 +6,18 @@ Bảng invoices (theo hotel_management.sql):
     id, booking_id (UNIQUE), amount, created_at, status(Unpaid/Paid/Cancelled),
     payment_method(Cash/BankTransfer)
 """
-from datetime import date
 import sys
 import os
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
+BASE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
 )
 
 if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
+    sys.path.insert(0, BASE_DIR)
+
 from db import get_connection
+
 
 # ---------------------------------------------------------------------
 # 1. Lấy danh sách booking CHƯA có hóa đơn -> đổ vào combobox "Booking"
@@ -37,7 +34,8 @@ def get_bookings_without_invoice():
         SELECT b.id AS booking_id, c.name AS customer_name,
                r.room_number, r.room_type, r.price,
                b.checkin_date, b.checkout_date,
-               b.actual_checkin, b.actual_checkout, b.status
+               b.actual_checkin, b.actual_checkout, b.status,
+               b.extended_hours, b.extra_fee AS late_fee
         FROM bookings b
         JOIN customers c ON b.customer_id = c.id
         JOIN rooms r ON b.room_id = r.id
@@ -60,7 +58,8 @@ def get_booking_detail(booking_id):
     sql = """
         SELECT b.id AS booking_id, c.name AS customer_name,
                r.room_number, r.room_type, r.price,
-               b.checkin_date, b.checkout_date
+               b.checkin_date, b.checkout_date,
+               b.extended_hours, b.extra_fee AS late_fee
         FROM bookings b
         JOIN customers c ON b.customer_id = c.id
         JOIN rooms r ON b.room_id = r.id
@@ -192,7 +191,8 @@ def get_invoice_full(invoice_id):
         SELECT i.id, i.booking_id, i.amount, i.status, i.payment_method,
                i.created_at, c.name AS customer_name, c.phone, c.email,
                r.room_number, r.room_type, r.price,
-               b.checkin_date, b.checkout_date
+               b.checkin_date, b.checkout_date,
+               b.extended_hours, b.extra_fee AS late_fee
         FROM invoices i
         JOIN bookings b ON i.booking_id = b.id
         JOIN customers c ON b.customer_id = c.id
@@ -243,6 +243,8 @@ def export_invoice_pdf(invoice_id, output_path=None):
         f"Check-in         : {inv['checkin_date']}",
         f"Check-out        : {inv['checkout_date']}",
         f"Room price/night : {inv['price']:,.0f}",
+        f"Extended hours   : {inv.get('extended_hours') or 0}",
+        f"Late fee         : {float(inv.get('late_fee') or 0):,.0f}",
         "-" * 40,
         f"Total amount     : {inv['amount']:,.0f}",
         f"Status           : {inv['status']}",
