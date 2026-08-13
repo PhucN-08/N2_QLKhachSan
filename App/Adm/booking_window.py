@@ -101,8 +101,8 @@ def get_bookings():
             b.customer_id,
             c.name AS customer_name,
             b.room_id,
-            r.room_number,
-            r.room_type,
+            b.room_number,
+            b.room_type,
             b.checkin_date,
             b.checkout_date,
             b.actual_checkin,
@@ -110,10 +110,10 @@ def get_bookings():
             b.status,
             b.booking_date,
             b.extended_hours,
-            b.extra_fee
+            b.extra_fee,
+            b.room_price
         FROM bookings b
         JOIN customers c ON b.customer_id = c.id
-        JOIN rooms r ON b.room_id = r.id
         ORDER BY b.id DESC
     """
 
@@ -141,7 +141,10 @@ def add_booking(customer_id, room_id, checkin_date, checkout_date):
 
     try:
         cursor.execute(
-            "SELECT status FROM rooms WHERE id = %s",
+            """
+            SELECT status, price, room_number, room_type, image_url
+            FROM rooms WHERE id = %s
+            """,
             (room_id,)
         )
 
@@ -153,21 +156,38 @@ def add_booking(customer_id, room_id, checkin_date, checkout_date):
         if room[0] != "Empty":
             return False, "Phòng hiện không trống, vui lòng chọn phòng khác."
 
+        # Chốt thông tin phòng tại thời điểm đặt phòng (giá, số phòng,
+        # loại phòng, ảnh). Hoá đơn/hiển thị booking sau này sẽ dùng
+        # các giá trị này, không bị ảnh hưởng nếu admin sửa thông tin
+        # phòng sau khi khách đã đặt/nhận phòng.
+        room_price = room[1]
+        room_number = room[2]
+        room_type = room[3]
+        room_image_url = room[4]
+
         cursor.execute(
             """
             INSERT INTO bookings
             (
                 customer_id,
                 room_id,
+                room_price,
+                room_number,
+                room_type,
+                room_image_url,
                 checkin_date,
                 checkout_date,
                 status
             )
-            VALUES (%s, %s, %s, %s, 'Booked')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Booked')
             """,
             (
                 customer_id,
                 room_id,
+                room_price,
+                room_number,
+                room_type,
+                room_image_url,
                 checkin_d,
                 checkout_d
             )
@@ -497,7 +517,7 @@ def change_room(booking_id, new_room_id):
 
         cursor.execute(
             """
-            SELECT status
+            SELECT status, price, room_number, room_type, image_url
             FROM rooms
             WHERE id = %s
             """,
@@ -512,14 +532,29 @@ def change_room(booking_id, new_room_id):
         if new_room[0] != "Empty":
             return False, "Phòng mới hiện không trống."
 
+        # Chốt lại toàn bộ thông tin theo phòng mới tại thời điểm đổi
+        # phòng (snapshot mới), cùng nguyên tắc với lúc đặt phòng.
+        new_room_price = new_room[1]
+        new_room_number = new_room[2]
+        new_room_type = new_room[3]
+        new_room_image_url = new_room[4]
+
         cursor.execute(
             """
             UPDATE bookings
-            SET room_id = %s
+            SET room_id = %s,
+                room_price = %s,
+                room_number = %s,
+                room_type = %s,
+                room_image_url = %s
             WHERE id = %s
             """,
             (
                 new_room_id,
+                new_room_price,
+                new_room_number,
+                new_room_type,
+                new_room_image_url,
                 booking_id
             )
         )
@@ -1020,7 +1055,7 @@ class BookingWindow(tk.Frame):
         )
         ttk.Button(
             toolbar,
-            text="Vật tư",
+            text="Dịch vụ",
             style="Supply.TButton",
             command=self.on_supply
         ).pack(

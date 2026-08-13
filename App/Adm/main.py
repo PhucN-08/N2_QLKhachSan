@@ -95,6 +95,10 @@ class AdminApp:
             "💵  Hóa đơn / Thanh toán",
             self.open_invoices
         )
+        self.create_sidebar_button(
+            "🧰  Dịch vụ",
+            self.open_supply
+        )
 
         self.create_sidebar_button(
             "📊  Thống kê",
@@ -387,30 +391,28 @@ class AdminApp:
             "Tạo, cập nhật và xuất hóa đơn",
             self.open_invoices
         )
-
         self.create_function_card(
             grid,
             1,
             1,
+            "🧰",
+            "Quản lý dịch vụ",
+            "Quản lý các dịch vụ được cung cấp cho khách hàng",
+            self.open_supply
+        )
+
+        self.create_function_card(
+            grid,
+            1,
+            2,
             "📊",
             "Thống kê",
             "Xem doanh thu và thống kê hoạt động khách sạn",
             self.open_statistics
         )
 
-        # Ô trống
-        empty = tk.Frame(
-            grid,
-            bg=BG_COLOR
-        )
 
-        empty.grid(
-            row=1,
-            column=2,
-            sticky="nsew",
-            padx=(7, 0),
-            pady=(7, 0)
-        )
+        
 
     def create_function_card(
         self,
@@ -546,6 +548,16 @@ class AdminApp:
 
     def open_invoices(self):
         self.open_window("gui_invoice.py")
+
+    def open_invoices(self):
+        self.open_window("gui_invoice.py")
+
+    def open_supply(self):
+        self.open_window("supply_window.py")
+
+
+    def open_statistics(self):
+        self.open_window("statistics_gui.py")
 
 
     def open_statistics(self):

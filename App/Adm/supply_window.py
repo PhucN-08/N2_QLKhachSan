@@ -107,7 +107,7 @@ def add_supply(name, unit, price, quantity):
 
         conn.commit()
 
-        return True, "Thêm vật tư thành công."
+        return True, "Thêm thành công."
 
     except Error as e:
 
@@ -153,7 +153,7 @@ def update_supply(
 
         conn.commit()
 
-        return True, "Cập nhật vật tư thành công."
+        return True, "Cập nhật thành công."
 
     except Error as e:
 
@@ -182,7 +182,7 @@ def delete_supply(supply_id):
 
         conn.commit()
 
-        return True, "Xóa vật tư thành công."
+        return True, "Xóa thành công."
 
     except Error as e:
 
@@ -322,7 +322,7 @@ class SupplyWindow(tk.Frame):
 
         tk.Label(
             header,
-            text="QUẢN LÝ VẬT TƯ",
+            text="QUẢN LÝ DỊCH VỤ",
             font=FONT_TITLE,
             bg=COLOR_PRIMARY,
             fg="white"
@@ -390,7 +390,7 @@ class SupplyWindow(tk.Frame):
 
         tk.Label(
             card,
-            text="Thông tin vật tư",
+            text="Thông tin dịch vụ",
             bg=COLOR_CARD,
             fg=COLOR_TEXT,
             font=("Segoe UI", 12, "bold")
@@ -446,7 +446,7 @@ class SupplyWindow(tk.Frame):
 
         tk.Label(
             card,
-            text="Tên vật tư",
+            text="Tên",
             bg=COLOR_CARD,
             fg=COLOR_GRAY,
             font=FONT_BODY
@@ -601,7 +601,7 @@ class SupplyWindow(tk.Frame):
 
         ttk.Button(
             button_frame,
-            text="Thêm vật tư",
+            text="Thêm",
             style="Add.TButton",
             command=self.on_add
         ).pack(
@@ -676,7 +676,7 @@ class SupplyWindow(tk.Frame):
 
         tk.Label(
             card,
-            text="Danh sách vật tư",
+            text="Danh sách",
             bg=COLOR_CARD,
             fg=COLOR_TEXT,
             font=("Segoe UI", 12, "bold")
@@ -718,7 +718,7 @@ class SupplyWindow(tk.Frame):
 
         headers = {
             "id": "ID",
-            "name": "Tên vật tư",
+            "name": "Tên",
             "unit": "Đơn vị",
             "price": "Đơn giá",
             "quantity": "Số lượng tồn"
@@ -950,7 +950,7 @@ class SupplyWindow(tk.Frame):
 
             messagebox.showwarning(
                 "Thông báo",
-                "Vui lòng nhập tên vật tư."
+                "Vui lòng nhập tên."
             )
 
             return None
@@ -1068,7 +1068,7 @@ class SupplyWindow(tk.Frame):
 
             messagebox.showwarning(
                 "Thông báo",
-                "Vui lòng chọn vật tư cần cập nhật."
+                "Vui lòng chọn cần cập nhật."
             )
 
             return
@@ -1121,7 +1121,7 @@ class SupplyWindow(tk.Frame):
 
             messagebox.showwarning(
                 "Thông báo",
-                "Vui lòng chọn vật tư cần xóa."
+                "Vui lòng chọn cần xóa."
             )
 
             return
@@ -1132,7 +1132,7 @@ class SupplyWindow(tk.Frame):
 
         confirm = messagebox.askyesno(
             "Xác nhận",
-            f"Bạn có chắc muốn xóa vật tư:\n\n{name}?"
+            f"Bạn có chắc muốn xóa:\n\n{name}?"
         )
 
 
@@ -1160,7 +1160,7 @@ class SupplyWindow(tk.Frame):
 
             messagebox.showerror(
                 "Không thể xóa",
-                "Vật tư này có thể đã được sử dụng trong booking.\n"
+                "Có thể đã được sử dụng trong booking.\n"
                 "Không thể xóa vì dữ liệu đang được tham chiếu."
             )
 
@@ -1216,7 +1216,7 @@ if __name__ == "__main__":
     root = tk.Tk()
 
     root.title(
-        "Quản lý vật tư"
+        "Quản lý dịch vụ"
     )
 
     root.geometry(

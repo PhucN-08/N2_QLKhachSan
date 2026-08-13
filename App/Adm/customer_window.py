@@ -35,8 +35,8 @@ def get_customers():
 
 
 def add_customer(name, email, phone, address, id_type, id_number):
-    if not name or not email:
-        return False, "Họ tên và Email không được để trống."
+    if not name or not email or not phone or not id_number:
+        return False, "Họ tên, Email, Số điện thoại và Số giấy tờ không được để trống."
     
     conn = get_connection()
     cursor = conn.cursor()
@@ -46,11 +46,15 @@ def add_customer(name, email, phone, address, id_type, id_number):
         if cursor.fetchone():
             return False, "Email đã tồn tại trong hệ thống."
         
-        # Kiểm tra trùng số giấy tờ (nếu có nhập)
-        if id_number:
-            cursor.execute("SELECT id FROM customers WHERE id_number = %s", (id_number,))
-            if cursor.fetchone():
-                return False, "Số giấy tờ (CCCD/Passport) đã tồn tại."
+        # Kiểm tra trùng số điện thoại
+        cursor.execute("SELECT id FROM customers WHERE phone = %s", (phone,))
+        if cursor.fetchone():
+            return False, "Số điện thoại đã tồn tại trong hệ thống."
+        
+        # Kiểm tra trùng số giấy tờ
+        cursor.execute("SELECT id FROM customers WHERE id_number = %s", (id_number,))
+        if cursor.fetchone():
+            return False, "Số giấy tờ (CCCD/Passport) đã tồn tại."
 
         query = """INSERT INTO customers (name, email, phone, address, id_type, id_number)
                    VALUES (%s, %s, %s, %s, %s, %s)"""
@@ -66,8 +70,8 @@ def add_customer(name, email, phone, address, id_type, id_number):
 
 
 def update_customer(customer_id, name, email, phone, address, id_type, id_number):
-    if not name or not email:
-        return False, "Họ tên và Email không được để trống."
+    if not name or not email or not phone or not id_number:
+        return False, "Họ tên, Email, Số điện thoại và Số giấy tờ không được để trống."
     
     conn = get_connection()
     cursor = conn.cursor()
@@ -77,11 +81,15 @@ def update_customer(customer_id, name, email, phone, address, id_type, id_number
         if cursor.fetchone():
             return False, "Email đã tồn tại trong hệ thống."
         
+        # Kiểm tra trùng số điện thoại với các khách hàng khác
+        cursor.execute("SELECT id FROM customers WHERE phone = %s AND id != %s", (phone, customer_id))
+        if cursor.fetchone():
+            return False, "Số điện thoại đã tồn tại trong hệ thống."
+        
         # Kiểm tra trùng số giấy tờ với các khách hàng khác
-        if id_number:
-            cursor.execute("SELECT id FROM customers WHERE id_number = %s AND id != %s", (id_number, customer_id))
-            if cursor.fetchone():
-                return False, "Số giấy tờ (CCCD/Passport) đã tồn tại."
+        cursor.execute("SELECT id FROM customers WHERE id_number = %s AND id != %s", (id_number, customer_id))
+        if cursor.fetchone():
+            return False, "Số giấy tờ (CCCD/Passport) đã tồn tại."
 
         query = """UPDATE customers 
                    SET name = %s, email = %s, phone = %s, address = %s, id_type = %s, id_number = %s
@@ -221,7 +229,7 @@ class CustomerWindow(tk.Frame):
         self.entry_email.grid(row=0, column=3, sticky="ew", pady=6, ipady=3)
 
         # Hàng 2: Số điện thoại - Địa chỉ
-        self._field_label(form, "Số điện thoại", 1, 0)
+        self._field_label(form, "Số điện thoại *", 1, 0)
         self.entry_phone = tk.Entry(form, font=FONT_BODY, relief="solid",
                                      borderwidth=1, highlightthickness=0)
         self.entry_phone.grid(row=1, column=1, sticky="ew", padx=(0, 20), pady=6, ipady=3)
@@ -237,7 +245,7 @@ class CustomerWindow(tk.Frame):
         self.cb_id_type.grid(row=2, column=1, sticky="ew", padx=(0, 20), pady=(6, 12))
         self.cb_id_type.current(0)
 
-        self._field_label(form, "Số giấy tờ", 2, 2)
+        self._field_label(form, "Số giấy tờ *", 2, 2)
         self.entry_id_number = tk.Entry(form, font=FONT_BODY, relief="solid",
                                          borderwidth=1, highlightthickness=0)
         self.entry_id_number.grid(row=2, column=3, sticky="ew", pady=(6, 12), ipady=3)
@@ -433,7 +441,7 @@ class CustomerWindow(tk.Frame):
         id_type = self.cb_id_type.get()
         id_number = self.entry_id_number.get().strip()
 
-        if not name or not email:
+        if not name or not email or not phone or not id_number:
             messagebox.showwarning("Thông báo", "Vui lòng điền đầy đủ các thông tin bắt buộc (*).")
             return
 
@@ -458,7 +466,7 @@ class CustomerWindow(tk.Frame):
         id_type = self.cb_id_type.get()
         id_number = self.entry_id_number.get().strip()
 
-        if not name or not email:
+        if not name or not email or not phone or not id_number:
             messagebox.showwarning("Thông báo", "Vui lòng điền đầy đủ các thông tin bắt buộc (*).")
             return
 

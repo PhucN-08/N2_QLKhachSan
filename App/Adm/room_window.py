@@ -523,7 +523,8 @@ tk.Entry(
     row=0,
     column=1,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 
@@ -553,7 +554,8 @@ tk.Entry(
     row=0,
     column=3,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 
@@ -581,7 +583,8 @@ ttk.Combobox(
     row=1,
     column=1,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 
@@ -609,7 +612,8 @@ ttk.Combobox(
     row=1,
     column=3,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 
@@ -639,7 +643,8 @@ tk.Entry(
     row=2,
     column=1,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 
@@ -669,7 +674,8 @@ tk.Entry(
     row=2,
     column=3,
     padx=(0, 25),
-    pady=6
+    pady=6,
+    sticky="w"
 )
 
 

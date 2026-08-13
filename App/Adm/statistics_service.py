@@ -1,6 +1,6 @@
 """
-report_service.py
-Các hàm nghiệp vụ cho module Reports (Báo cáo)
+statistics_service.py
+Các hàm nghiệp vụ cho module Thống kê (Reports)
 Không có bảng riêng - dữ liệu được tổng hợp (aggregate) từ bookings + invoices.
 """
 import sys
