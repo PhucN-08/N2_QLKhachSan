@@ -16,6 +16,26 @@ if BASE_DIR not in sys.path:
 from db import get_connection
 
 
+# Subquery tổng tiền dịch vụ/vật tư của 1 booking - lấy trực tiếp từ
+# booking_supplies + supplies (giống hệt invoice_service.py).
+_SERVICE_FEE_SQL = """
+    (SELECT COALESCE(SUM(bs.quantity * s.price), 0)
+     FROM booking_supplies bs
+     JOIN supplies s ON bs.supply_id = s.id
+     WHERE bs.booking_id = b.id)
+"""
+
+# Biểu thức SQL dùng chung với invoice_service.py: hóa đơn còn Unpaid thì tính
+# "sống" theo giá phòng hiện tại + phí quá giờ + phí dịch vụ; Paid/Cancelled
+# thì dùng số đã chốt cứng trong i.amount.
+_RESOLVED_AMOUNT_SQL = f"""
+    (CASE WHEN i.status = 'Unpaid'
+          THEN (r.price * GREATEST(DATEDIFF(b.checkout_date, b.checkin_date), 1)
+                + IFNULL(b.extra_fee, 0) + {_SERVICE_FEE_SQL})
+          ELSE i.amount END)
+"""
+
+
 # ---------------------------------------------------------------------
 # 1. Thống kê tổng quan trong khoảng thời gian [start_date, end_date]
 # ---------------------------------------------------------------------
@@ -34,7 +54,7 @@ def get_statistics(start_date, end_date):
 
     stats = {}
 
-    # Tổng doanh thu đã thu (Paid)
+    # Tổng doanh thu đã thu (Paid) - số đã chốt cứng, không cần tính lại
     cur.execute("""
         SELECT COALESCE(SUM(i.amount), 0) AS total
         FROM invoices i
@@ -43,10 +63,34 @@ def get_statistics(start_date, end_date):
     """, (start_date, end_date))
     stats["total_revenue"] = float(cur.fetchone()["total"])
 
-    # Tổng tiền chưa thu (Unpaid)
+    # Doanh thu từ phòng (Paid)
     cur.execute("""
-        SELECT COALESCE(SUM(i.amount), 0) AS total
+        SELECT COALESCE(SUM(r.price * GREATEST(DATEDIFF(b.checkout_date, b.checkin_date), 1)), 0) AS total
         FROM invoices i
+        JOIN bookings b ON i.booking_id = b.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE i.status = 'Paid'
+          AND DATE(i.created_at) BETWEEN %s AND %s
+    """, (start_date, end_date))
+    stats["room_revenue"] = float(cur.fetchone()["total"])
+
+    # Doanh thu từ dịch vụ (Paid)
+    cur.execute(f"""
+        SELECT COALESCE(SUM({_SERVICE_FEE_SQL}), 0) AS total
+        FROM invoices i
+        JOIN bookings b ON i.booking_id = b.id
+        WHERE i.status = 'Paid'
+          AND DATE(i.created_at) BETWEEN %s AND %s
+    """, (start_date, end_date))
+    stats["service_revenue"] = float(cur.fetchone()["total"])
+
+    # Tổng tiền chưa thu (Unpaid) - tính "sống" theo giá phòng HIỆN TẠI,
+    # nên nếu Booking đổi phòng thì số này tự cập nhật theo.
+    cur.execute(f"""
+        SELECT COALESCE(SUM({_RESOLVED_AMOUNT_SQL}), 0) AS total
+        FROM invoices i
+        JOIN bookings b ON i.booking_id = b.id
+        JOIN rooms r ON b.room_id = r.id
         WHERE i.status = 'Unpaid'
           AND DATE(i.created_at) BETWEEN %s AND %s
     """, (start_date, end_date))
@@ -97,9 +141,10 @@ def get_invoice_rows(start_date, end_date):
     """Chi tiết từng hóa đơn trong khoảng thời gian, dùng để xuất báo cáo chi tiết."""
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
-    cur.execute("""
+    cur.execute(f"""
         SELECT i.id, i.booking_id, c.name AS customer_name, r.room_number,
-               r.room_type, i.amount, i.status, i.payment_method, i.created_at
+               r.room_type, {_RESOLVED_AMOUNT_SQL} AS amount,
+               i.status, i.payment_method, i.created_at
         FROM invoices i
         JOIN bookings b ON i.booking_id = b.id
         JOIN customers c ON b.customer_id = c.id

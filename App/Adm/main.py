@@ -36,6 +36,7 @@ class AdminApp:
         self.create_main_area()
 
         self.update_statistics()
+        self.start_consultation_polling()
 
     def create_sidebar(self):
         self.sidebar = tk.Frame(
@@ -80,6 +81,8 @@ class AdminApp:
             "👤  Khách hàng",
             self.open_customers
         )
+
+        self.create_consultation_sidebar_button()
 
         self.create_sidebar_button(
             "🏠  Quản lý phòng",
@@ -159,6 +162,59 @@ class AdminApp:
             pady=4
         )
 
+    # Nút sidebar riêng cho "Yêu cầu tư vấn" vì cần đè thêm badge số
+    # (chấm đỏ kiểu Zalo) lên góc nút, nên không dùng chung
+    # create_sidebar_button ở trên để tránh ảnh hưởng các nút khác.
+    def create_consultation_sidebar_button(self):
+        frame = tk.Frame(
+            self.sidebar,
+            bg=SIDEBAR_COLOR
+        )
+
+        frame.pack(
+            fill="x",
+            padx=10,
+            pady=4
+        )
+
+        button = tk.Button(
+            frame,
+            text="💬  Yêu cầu tư vấn",
+            command=self.open_consultation,
+            bg=SIDEBAR_COLOR,
+            fg=WHITE,
+            activebackground="#374151",
+            activeforeground=WHITE,
+            relief="flat",
+            bd=0,
+            anchor="w",
+            font=("Arial", 11),
+            cursor="hand2",
+            padx=25,
+            height=2
+        )
+
+        button.pack(fill="x")
+
+        badge = tk.Label(
+            frame,
+            bg="#e53935",
+            fg=WHITE,
+            font=("Arial", 8, "bold"),
+            width=2
+        )
+
+        self.consultation_badge = badge
+
+        def set_badge(count):
+            if count <= 0:
+                badge.place_forget()
+            else:
+                badge.config(text=str(count) if count <= 9 else "9+")
+                badge.place(relx=0.92, rely=0.15, anchor="ne")
+
+        self.set_consultation_badge = set_badge
+
     def create_main_area(self):
         self.main = tk.Frame(
             self.root,
@@ -200,7 +256,7 @@ class AdminApp:
         refresh_button = tk.Button(
             header,
             text="Làm mới",
-            command=self.update_statistics,
+            command=self.on_refresh_click,
             bg=WHITE,
             fg=BLUE,
             activebackground="#eff6ff",
@@ -537,6 +593,9 @@ class AdminApp:
     def open_customers(self):
         self.open_window("customer_window.py")
 
+    def open_consultation(self):
+        self.open_window("consultation_window.py")
+
 
     def open_rooms(self):
         self.open_window("room_window.py")
@@ -549,15 +608,8 @@ class AdminApp:
     def open_invoices(self):
         self.open_window("gui_invoice.py")
 
-    def open_invoices(self):
-        self.open_window("gui_invoice.py")
-
     def open_supply(self):
         self.open_window("supply_window.py")
-
-
-    def open_statistics(self):
-        self.open_window("statistics_gui.py")
 
 
     def open_statistics(self):
@@ -609,6 +661,33 @@ class AdminApp:
 
         except Exception as e:
             print("Không thể cập nhật thống kê nhanh:", e)
+
+    def refresh_consultation_badge(self):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM consultation_requests WHERE status = 'New'"
+            )
+
+            count = cursor.fetchone()[0]
+
+            cursor.close()
+            conn.close()
+
+            self.set_consultation_badge(count)
+
+        except Exception as e:
+            print("Không thể cập nhật số yêu cầu tư vấn mới:", e)
+
+    def start_consultation_polling(self):
+        self.refresh_consultation_badge()
+        self.root.after(15000, self.start_consultation_polling)
+
+    def on_refresh_click(self):
+        self.update_statistics()
+        self.refresh_consultation_badge()
 
     def exit_program(self):
         result = messagebox.askyesno(

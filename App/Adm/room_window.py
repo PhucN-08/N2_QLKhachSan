@@ -12,6 +12,31 @@ from mysql.connector import Error
 TYPES = ("Standard", "Deluxe", "Suite")
 STATUSES = ("Empty", "Booked", "Occupied", "Deactivated")
 
+ROOM_TYPE_VI = {
+    "Standard": "Tiêu chuẩn",
+    "Deluxe": "Cao cấp",
+    "Suite": "Hạng sang",
+}
+ROOM_TYPE_EN = {v: k for k, v in ROOM_TYPE_VI.items()}
+
+STATUS_VI = {
+    "Empty": "Trống",
+    "Booked": "Đã đặt",
+    "Occupied": "Đang có khách",
+    "Deactivated": "Ngừng phục vụ",
+}
+STATUS_EN = {v: k for k, v in STATUS_VI.items()}
+
+# Trống = 1 màu, có khách (Booked/Occupied) = chung 1 màu, ngừng phục vụ = xám
+STATUS_COLOR = {
+    "Empty": "#20B26B",
+    "Booked": "#D63C32",
+    "Occupied": "#D63C32",
+    "Deactivated": "#7F8C8D",
+}
+
+DESCRIPTION_MAX_LEN = 150
+
 
 # ================= DATABASE =================
 
@@ -30,7 +55,9 @@ def init_db():
                 room_type ENUM('Standard','Deluxe','Suite') NOT NULL,
                 status ENUM('Empty','Booked','Occupied','Deactivated') DEFAULT 'Empty',
                 price DECIMAL(10,2) NOT NULL,
-                image_url VARCHAR(255)
+                image_url VARCHAR(255),
+                description VARCHAR(150),
+                max_guests INT NOT NULL DEFAULT 2
             )
         """)
         db.commit()
@@ -44,8 +71,8 @@ def get_rooms():
     cursor = db.cursor()
     try:
         cursor.execute(
-            "SELECT id, room_number, room_type, status, price, image_url "
-            "FROM rooms ORDER BY id"
+            "SELECT id, room_number, room_type, status, price, image_url, "
+            "description, max_guests FROM rooms ORDER BY id"
         )
         return cursor.fetchall()
     finally:
@@ -53,16 +80,16 @@ def get_rooms():
         db.close()
 
 
-def add_room(room_number, room_type, price, image_url=""):
+def add_room(room_number, room_type, price, image_url="", description="", max_guests=2):
     try:
         db = connect()
         cursor = db.cursor()
         try:
             cursor.execute("""
                 INSERT INTO rooms
-                (room_number, room_type, status, price, image_url)
-                VALUES (%s, %s, 'Empty', %s, %s)
-            """, (room_number, room_type, price, image_url))
+                (room_number, room_type, status, price, image_url, description, max_guests)
+                VALUES (%s, %s, 'Empty', %s, %s, %s, %s)
+            """, (room_number, room_type, price, image_url, description, max_guests))
 
             db.commit()
 
@@ -76,7 +103,7 @@ def add_room(room_number, room_type, price, image_url=""):
         return False
 
 
-def update_room(room_id, room_number, room_type, status, price, image_url=""):
+def update_room(room_id, room_number, room_type, status, price, image_url="", description="", max_guests=2):
     try:
         db = connect()
         cursor = db.cursor()
@@ -88,7 +115,9 @@ def update_room(room_id, room_number, room_type, status, price, image_url=""):
                     room_type=%s,
                     status=%s,
                     price=%s,
-                    image_url=%s
+                    image_url=%s,
+                    description=%s,
+                    max_guests=%s
                 WHERE id=%s
             """, (
                 room_number,
@@ -96,6 +125,8 @@ def update_room(room_id, room_number, room_type, status, price, image_url=""):
                 status,
                 price,
                 image_url,
+                description,
+                max_guests,
                 room_id
             ))
 
@@ -157,23 +188,40 @@ def refresh():
         table.delete(item)
 
     for room in get_rooms():
-        table.insert("", "end", values=room)
+        room_id, room_number, room_type, status, price, image_url, description, max_guests = room
+
+        display_row = (
+            room_id,
+            room_number,
+            ROOM_TYPE_VI.get(room_type, room_type),
+            STATUS_VI.get(status, status),
+            price,
+            max_guests,
+            description or "",
+            image_url or ""
+        )
+
+        table.insert("", "end", values=display_row, tags=(status,))
 
 
 def clear_form():
     id_var.set("")
     number_var.set("")
-    type_var.set("Standard")
-    status_var.set("Empty")
+    type_var.set(ROOM_TYPE_VI["Standard"])
+    status_var.set(STATUS_VI["Empty"])
     price_var.set("")
     image_var.set("")
+    description_var.set("")
+    guests_var.set("2")
 
 
 def add():
     number = number_var.get().strip()
-    room_type = type_var.get()
+    room_type = ROOM_TYPE_EN.get(type_var.get(), "Standard")
     price = price_var.get().strip()
     image = image_var.get().strip()
+    description = description_var.get().strip()
+    guests = guests_var.get().strip()
 
     if not number or not price:
         messagebox.showwarning(
@@ -195,7 +243,27 @@ def add():
         )
         return
 
-    if add_room(number, room_type, price, image):
+    if len(description) > DESCRIPTION_MAX_LEN:
+        messagebox.showwarning(
+            "Thông báo",
+            f"Mô tả ngắn chỉ được tối đa {DESCRIPTION_MAX_LEN} ký tự."
+        )
+        return
+
+    try:
+        guests = int(guests) if guests else 2
+
+        if guests <= 0:
+            raise ValueError
+
+    except ValueError:
+        messagebox.showwarning(
+            "Thông báo",
+            "Số người tối đa phải là số nguyên dương."
+        )
+        return
+
+    if add_room(number, room_type, price, image, description, guests):
         messagebox.showinfo(
             "Thành công",
             "Đã thêm phòng."
@@ -222,10 +290,12 @@ def update():
         return
 
     number = number_var.get().strip()
-    room_type = type_var.get()
-    status = status_var.get()
+    room_type = ROOM_TYPE_EN.get(type_var.get(), "Standard")
+    status = STATUS_EN.get(status_var.get(), "Empty")
     price = price_var.get().strip()
     image = image_var.get().strip()
+    description = description_var.get().strip()
+    guests = guests_var.get().strip()
 
     if not number or not price:
         messagebox.showwarning(
@@ -247,13 +317,35 @@ def update():
         )
         return
 
+    if len(description) > DESCRIPTION_MAX_LEN:
+        messagebox.showwarning(
+            "Thông báo",
+            f"Mô tả ngắn chỉ được tối đa {DESCRIPTION_MAX_LEN} ký tự."
+        )
+        return
+
+    try:
+        guests = int(guests) if guests else 2
+
+        if guests <= 0:
+            raise ValueError
+
+    except ValueError:
+        messagebox.showwarning(
+            "Thông báo",
+            "Số người tối đa phải là số nguyên dương."
+        )
+        return
+
     if update_room(
         room_id,
         number,
         room_type,
         status,
         price,
-        image
+        image,
+        description,
+        guests
     ):
         messagebox.showinfo(
             "Thành công",
@@ -338,7 +430,9 @@ def select_room(event):
     type_var.set(values[2])
     status_var.set(values[3])
     price_var.set(values[4])
-    image_var.set(values[5])
+    guests_var.set(values[5])
+    description_var.set(values[6])
+    image_var.set(values[7])
 
 
 # ================= WINDOW =================
@@ -489,10 +583,12 @@ form.grid(
 
 id_var = tk.StringVar()
 number_var = tk.StringVar()
-type_var = tk.StringVar(value="Standard")
-status_var = tk.StringVar(value="Empty")
+type_var = tk.StringVar(value=ROOM_TYPE_VI["Standard"])
+status_var = tk.StringVar(value=STATUS_VI["Empty"])
 price_var = tk.StringVar()
 image_var = tk.StringVar()
+description_var = tk.StringVar()
+guests_var = tk.StringVar(value="2")
 
 
 tk.Label(
@@ -576,7 +672,7 @@ tk.Label(
 ttk.Combobox(
     form,
     textvariable=type_var,
-    values=TYPES,
+    values=list(ROOM_TYPE_VI.values()),
     state="readonly",
     width=18
 ).grid(
@@ -605,7 +701,7 @@ tk.Label(
 ttk.Combobox(
     form,
     textvariable=status_var,
-    values=STATUSES,
+    values=list(STATUS_VI.values()),
     state="readonly",
     width=18
 ).grid(
@@ -672,6 +768,68 @@ tk.Entry(
     bd=1
 ).grid(
     row=2,
+    column=3,
+    padx=(0, 25),
+    pady=6,
+    sticky="w"
+)
+
+
+tk.Label(
+    form,
+    text="Số người tối đa",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(
+    row=3,
+    column=0,
+    padx=(0, 8),
+    pady=6,
+    sticky="w"
+)
+
+tk.Entry(
+    form,
+    textvariable=guests_var,
+    width=20,
+    bg=WHITE,
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(
+    row=3,
+    column=1,
+    padx=(0, 25),
+    pady=6,
+    sticky="w"
+)
+
+
+tk.Label(
+    form,
+    text="Mô tả ngắn",
+    bg=WHITE,
+    fg=GRAY,
+    font=("Arial", 10)
+).grid(
+    row=3,
+    column=2,
+    padx=(0, 8),
+    pady=6,
+    sticky="w"
+)
+
+tk.Entry(
+    form,
+    textvariable=description_var,
+    width=40,
+    bg=WHITE,
+    fg=TEXT,
+    relief="solid",
+    bd=1
+).grid(
+    row=3,
     column=3,
     padx=(0, 25),
     pady=6,
@@ -836,6 +994,8 @@ columns = (
     "room_type",
     "status",
     "price",
+    "max_guests",
+    "description",
     "image_url"
 )
 
@@ -853,6 +1013,8 @@ headers = {
     "room_type": "Loại phòng",
     "status": "Trạng thái",
     "price": "Giá/ngày",
+    "max_guests": "Số người",
+    "description": "Mô tả ngắn",
     "image_url": "Image URL"
 }
 
@@ -860,14 +1022,18 @@ headers = {
 widths = {
     "id": 50,
     "room_number": 100,
-    "room_type": 120,
+    "room_type": 110,
     "status": 130,
-    "price": 120,
-    "image_url": 300
+    "price": 110,
+    "max_guests": 80,
+    "description": 220,
+    "image_url": 220
 }
 
 
 for column in columns:
+
+    anchor = "w" if column == "description" else "center"
 
     table.heading(
         column,
@@ -877,7 +1043,15 @@ for column in columns:
     table.column(
         column,
         width=widths[column],
-        anchor="center"
+        anchor=anchor
+    )
+
+
+for status_key, color in STATUS_COLOR.items():
+    table.tag_configure(
+        status_key,
+        foreground=color,
+        font=("Arial", 10, "bold")
     )
 
 

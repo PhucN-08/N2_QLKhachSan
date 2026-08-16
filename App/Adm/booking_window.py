@@ -44,6 +44,14 @@ STATUS_LABELS_VI = {
     "Cancelled": "Đã hủy",
 }
 
+# Khớp với ROOM_TYPE_VI trong room_window.py — DB vẫn lưu tiếng Anh,
+# chỉ dịch khi hiển thị lên giao diện.
+ROOM_TYPE_VI = {
+    "Standard": "Tiêu chuẩn",
+    "Deluxe": "Cao cấp",
+    "Suite": "Hạng sang",
+}
+
 FONT_TITLE = ("Segoe UI", 15, "bold")
 FONT_HEADING = ("Segoe UI", 10, "bold")
 FONT_BODY = ("Segoe UI", 10)
@@ -1428,7 +1436,7 @@ class BookingWindow(tk.Frame):
             all_rooms = get_all_rooms()
 
             self.rooms_map = {
-                f"{r['room_number']} - {r['room_type']}": r["id"]
+                f"{r['room_number']} - {ROOM_TYPE_VI.get(r['room_type'], r['room_type'])}": r["id"]
                 for r in all_rooms
             }
 
@@ -1482,7 +1490,7 @@ class BookingWindow(tk.Frame):
                 values=(
                     b["id"],
                     b["customer_name"],
-                    f"{b['room_number']} ({b['room_type']})",
+                    f"{b['room_number']} ({ROOM_TYPE_VI.get(b['room_type'], b['room_type'])})",
                     format_date_vi(b["checkin_date"]),
                     format_date_vi(b["checkout_date"]),
                     format_date_vi(b["actual_checkin"]),
@@ -1557,7 +1565,7 @@ class BookingWindow(tk.Frame):
 
         room_key = (
             f"{booking['room_number']} - "
-            f"{booking['room_type']}"
+            f"{ROOM_TYPE_VI.get(booking['room_type'], booking['room_type'])}"
         )
 
         if customer_key in self.customers_map:
