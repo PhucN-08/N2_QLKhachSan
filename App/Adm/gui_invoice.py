@@ -2,9 +2,17 @@
 gui_invoice.py
 Frame Tkinter cho tab "Hóa đơn" - giao diện tiếng Việt theo phong cách
 Modern Hotel Management Dashboard (giữ nguyên toàn bộ logic/chức năng cũ).
+
 Bố cục: Đặt phòng / Khách hàng / Phòng / Nhận phòng / Trả phòng / Đơn giá phòng /
-Phí quá giờ / Tổng tiền / Trạng thái / Thanh toán + nút Tạo / Cập nhật / Xuất / Làm mới
-+ bảng danh sách hóa đơn phía dưới
+Phí quá giờ (tự động) / Phí dịch vụ (nhập tay) / Tổng tiền / Trạng thái / Thanh toán
++ nút Tạo / Cập nhật / Xuất / Làm mới + bảng danh sách hóa đơn phía dưới.
+
+QUY TẮC:
+- Hóa đơn "Đã thanh toán" (Paid) bị KHÓA hoàn toàn - không sửa được nữa
+  (trạng thái, phương thức, phí dịch vụ, nút Cập nhật đều bị vô hiệu hóa).
+- Khi còn "Chưa thanh toán", Tổng tiền luôn được tính lại theo giá phòng
+  HIỆN TẠI (invoice_service tự JOIN sống, không dùng số cũ đã lưu) - nên nếu
+  bên Booking đổi phòng, mở lại hóa đơn này sẽ thấy Tổng tiền tự cập nhật.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -26,6 +34,7 @@ COLOR_BORDER = "#D1D5DB"      # viền nhẹ
 COLOR_ROW_ALT = "#F8FAFC"     # dòng xen kẽ trong bảng
 COLOR_ROW_SELECT = "#DCEBFB"  # dòng được chọn trong bảng
 COLOR_ENTRY_READONLY = "#F4F7FA"
+COLOR_LOCK_BANNER_BG = "#FEF2F2"
 
 FONT_FAMILY = "Segoe UI"
 FONT_TITLE = (FONT_FAMILY, 13, "bold")
@@ -59,6 +68,7 @@ class InvoiceFrame(tk.Frame):
         super().__init__(master, bg=COLOR_BG)
         self.bookings_cache = {}     # map "001 - A - Phòng 001" -> booking dict
         self.current_invoice_id = None
+        self.is_locked = False       # True khi hóa đơn đang xem đã "Đã thanh toán"
         self._setup_style()
         self._build_form()
         self._build_table()
@@ -75,15 +85,11 @@ class InvoiceFrame(tk.Frame):
         except tk.TclError:
             pass
 
-        # ----- Notebook / Tab (tab Invoices / Reports ở app chính) -----
         style.configure("TNotebook", background=COLOR_BG, borderwidth=0)
         style.configure(
             "TNotebook.Tab",
-            background=COLOR_CARD,
-            foreground=COLOR_TEXT,
-            font=FONT_BODY,
-            padding=(16, 8),
-            borderwidth=0,
+            background=COLOR_CARD, foreground=COLOR_TEXT, font=FONT_BODY,
+            padding=(16, 8), borderwidth=0,
         )
         style.map(
             "TNotebook.Tab",
@@ -92,50 +98,30 @@ class InvoiceFrame(tk.Frame):
             font=[("selected", FONT_HEADING)],
         )
 
-        # ----- Combobox -----
         style.configure(
-            "TCombobox",
-            padding=5,
-            font=FONT_BODY,
-            fieldbackground=COLOR_CARD,
-            background=COLOR_CARD,
-            bordercolor=COLOR_BORDER,
-            arrowcolor=COLOR_PRIMARY,
+            "TCombobox", padding=5, font=FONT_BODY, fieldbackground=COLOR_CARD,
+            background=COLOR_CARD, bordercolor=COLOR_BORDER, arrowcolor=COLOR_PRIMARY,
         )
         style.map(
             "TCombobox",
-            fieldbackground=[("readonly", COLOR_CARD), ("focus", COLOR_CARD)],
+            fieldbackground=[("readonly", COLOR_CARD), ("disabled", COLOR_ENTRY_READONLY)],
             bordercolor=[("focus", COLOR_SECONDARY)],
         )
 
-        # ----- Treeview -----
         style.configure(
-            "Treeview",
-            font=FONT_BODY,
-            rowheight=28,
-            background=COLOR_CARD,
-            fieldbackground=COLOR_CARD,
-            foreground=COLOR_TEXT,
-            borderwidth=0,
+            "Treeview", font=FONT_BODY, rowheight=28, background=COLOR_CARD,
+            fieldbackground=COLOR_CARD, foreground=COLOR_TEXT, borderwidth=0,
         )
         style.configure(
-            "Treeview.Heading",
-            font=FONT_HEADING,
-            background=COLOR_PRIMARY,
-            foreground="#FFFFFF",
-            relief="flat",
+            "Treeview.Heading", font=FONT_HEADING, background=COLOR_PRIMARY,
+            foreground="#FFFFFF", relief="flat",
         )
+        style.map("Treeview.Heading", background=[("active", COLOR_SECONDARY)])
         style.map(
-            "Treeview.Heading",
-            background=[("active", COLOR_SECONDARY)],
-        )
-        style.map(
-            "Treeview",
-            background=[("selected", COLOR_ROW_SELECT)],
+            "Treeview", background=[("selected", COLOR_ROW_SELECT)],
             foreground=[("selected", COLOR_HEADING)],
         )
 
-        # ----- Button styles theo màu chức năng -----
         button_specs = {
             "Create": (COLOR_SECONDARY, "#255f92"),
             "Update": (COLOR_PRIMARY, "#163a5c"),
@@ -145,31 +131,22 @@ class InvoiceFrame(tk.Frame):
         }
         for name, (base, active) in button_specs.items():
             style.configure(
-                f"{name}.TButton",
-                background=base,
-                foreground="#FFFFFF",
-                font=FONT_HEADING,
-                padding=(14, 8),
-                borderwidth=0,
-                focusthickness=0,
+                f"{name}.TButton", background=base, foreground="#FFFFFF",
+                font=FONT_HEADING, padding=(14, 8), borderwidth=0, focusthickness=0,
             )
             style.map(f"{name}.TButton", background=[("active", active)])
+        # Style riêng cho nút Cập nhật khi bị khóa (xám nhạt, không phản hồi)
+        style.configure(
+            "UpdateDisabled.TButton", background="#B9C3CC", foreground="#F3F4F6",
+            font=FONT_HEADING, padding=(14, 8), borderwidth=0,
+        )
 
     def _entry_style(self, master, textvariable, readonly=False, width=40):
-        """Tạo Entry chuẩn theo theme: viền xám nhạt, focus chuyển xanh."""
         entry = tk.Entry(
-            master,
-            textvariable=textvariable,
-            width=width,
-            font=FONT_BODY,
-            fg=COLOR_TEXT,
-            bg=COLOR_CARD,
-            relief="flat",
-            highlightthickness=1,
-            highlightbackground=COLOR_BORDER,
-            highlightcolor=COLOR_SECONDARY,
-            readonlybackground=COLOR_ENTRY_READONLY,
-            disabledbackground=COLOR_ENTRY_READONLY,
+            master, textvariable=textvariable, width=width, font=FONT_BODY,
+            fg=COLOR_TEXT, bg=COLOR_CARD, relief="flat", highlightthickness=1,
+            highlightbackground=COLOR_BORDER, highlightcolor=COLOR_SECONDARY,
+            readonlybackground=COLOR_ENTRY_READONLY, disabledbackground=COLOR_ENTRY_READONLY,
             insertbackground=COLOR_TEXT,
         )
         if readonly:
@@ -178,16 +155,8 @@ class InvoiceFrame(tk.Frame):
 
     def _labelframe(self, parent, text):
         return tk.LabelFrame(
-            parent,
-            text=text,
-            padx=14,
-            pady=12,
-            bg=COLOR_CARD,
-            fg=COLOR_PRIMARY,
-            font=FONT_HEADING,
-            bd=0,
-            highlightthickness=1,
-            highlightbackground=COLOR_BORDER,
+            parent, text=text, padx=14, pady=12, bg=COLOR_CARD, fg=COLOR_PRIMARY,
+            font=FONT_HEADING, bd=0, highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
 
     def _field_label(self, parent, text):
@@ -203,77 +172,111 @@ class InvoiceFrame(tk.Frame):
         frm = self._labelframe(outer, "Thông tin hóa đơn")
         frm.pack(fill="x")
 
+        # Banner cảnh báo khi hóa đơn đã khóa (ẩn mặc định)
+        self.lbl_lock_banner = tk.Label(
+            frm, text="🔒 Hóa đơn đã Đã thanh toán - không thể chỉnh sửa.",
+            bg=COLOR_LOCK_BANNER_BG, fg=COLOR_DANGER, font=FONT_HEADING,
+            anchor="w", padx=10, pady=6,
+        )
+        # chỉ pack() khi is_locked=True (xem _apply_lock_state)
+
         # Đặt phòng
-        self._field_label(frm, "Đặt phòng:").grid(row=0, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Đặt phòng:").grid(row=1, column=0, sticky="e", pady=5, padx=(0, 8))
         self.cbo_booking = ttk.Combobox(frm, width=38, state="readonly", font=FONT_BODY)
-        self.cbo_booking.grid(row=0, column=1, sticky="w", pady=5)
+        self.cbo_booking.grid(row=1, column=1, sticky="w", pady=5)
         self.cbo_booking.bind("<<ComboboxSelected>>", self.on_booking_selected)
 
         # Khách hàng (tự điền, readonly)
-        self._field_label(frm, "Khách hàng:").grid(row=1, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Khách hàng:").grid(row=2, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_customer = tk.StringVar()
-        self._entry_style(frm, self.var_customer, readonly=True).grid(row=1, column=1, sticky="w", pady=5)
+        self._entry_style(frm, self.var_customer, readonly=True).grid(row=2, column=1, sticky="w", pady=5)
 
         # Phòng
-        self._field_label(frm, "Phòng:").grid(row=2, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Phòng:").grid(row=3, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_room = tk.StringVar()
-        self._entry_style(frm, self.var_room, readonly=True).grid(row=2, column=1, sticky="w", pady=5)
+        self._entry_style(frm, self.var_room, readonly=True).grid(row=3, column=1, sticky="w", pady=5)
 
         # Nhận phòng / Trả phòng
-        self._field_label(frm, "Nhận phòng:").grid(row=3, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Nhận phòng:").grid(row=4, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_checkin = tk.StringVar()
-        self._entry_style(frm, self.var_checkin, readonly=True).grid(row=3, column=1, sticky="w", pady=5)
+        self._entry_style(frm, self.var_checkin, readonly=True).grid(row=4, column=1, sticky="w", pady=5)
 
-        self._field_label(frm, "Trả phòng:").grid(row=4, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Trả phòng:").grid(row=5, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_checkout = tk.StringVar()
-        self._entry_style(frm, self.var_checkout, readonly=True).grid(row=4, column=1, sticky="w", pady=5)
+        self._entry_style(frm, self.var_checkout, readonly=True).grid(row=5, column=1, sticky="w", pady=5)
 
-        # Đơn giá phòng
-        self._field_label(frm, "Đơn giá phòng:").grid(row=5, column=0, sticky="e", pady=5, padx=(0, 8))
+        # Đơn giá phòng - luôn phản ánh giá HIỆN TẠI của phòng đang gắn với booking
+        self._field_label(frm, "Đơn giá phòng:").grid(row=6, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_price = tk.StringVar(value="0")
-        self._entry_style(frm, self.var_price, readonly=True).grid(row=5, column=1, sticky="w", pady=5)
+        self._entry_style(frm, self.var_price, readonly=True).grid(row=6, column=1, sticky="w", pady=5)
 
-        # Phí quá giờ - lấy tự động từ bookings.extra_fee (tính sẵn bên Booking lúc trả phòng)
-        self._field_label(frm, "Phí quá giờ:").grid(row=6, column=0, sticky="e", pady=5, padx=(0, 8))
-        self.var_extra = tk.StringVar(value="0")
-        self._entry_style(frm, self.var_extra, readonly=True).grid(row=6, column=1, sticky="w", pady=5)
+        # Phí quá giờ - tự động từ bookings.extra_fee (module Booking tính lúc trả phòng)
+        self._field_label(frm, "Phí quá giờ:").grid(row=7, column=0, sticky="e", pady=5, padx=(0, 8))
+        self.var_late_fee = tk.StringVar(value="0")
+        self._entry_style(frm, self.var_late_fee, readonly=True).grid(row=7, column=1, sticky="w", pady=5)
 
-        # Tổng tiền (tự tính) - làm nổi bật hơn các ô khác
-        self._field_label(frm, "Tổng tiền:").grid(row=7, column=0, sticky="e", pady=5, padx=(0, 8))
+        # Phí dịch vụ - LẤY TRỰC TIẾP từ booking_supplies (quản lý bên Booking)
+        self._field_label(frm, "Phí dịch vụ:").grid(row=8, column=0, sticky="e", pady=5, padx=(0, 8))
+        self.var_service = tk.StringVar(value="0")
+        self.entry_service = self._entry_style(frm, self.var_service, readonly=True)
+        self.entry_service.grid(row=8, column=1, sticky="w", pady=5)
+
+        # Tổng tiền (tự tính, luôn tính lại theo giá phòng hiện tại nếu còn Unpaid)
+        self._field_label(frm, "Tổng tiền:").grid(row=9, column=0, sticky="e", pady=5, padx=(0, 8))
         self.var_total = tk.StringVar(value="0")
-        entry_total = tk.Entry(
+        self.entry_total = tk.Entry(
             frm, textvariable=self.var_total, width=40, state="readonly",
             font=(FONT_FAMILY, 11, "bold"), fg=COLOR_PRIMARY, bg=COLOR_CARD,
             relief="flat", highlightthickness=1, highlightbackground=COLOR_BORDER,
             highlightcolor=COLOR_SECONDARY, readonlybackground=COLOR_ENTRY_READONLY,
         )
-        entry_total.grid(row=7, column=1, sticky="w", pady=5)
+        self.entry_total.grid(row=9, column=1, sticky="w", pady=5)
 
         # Trạng thái
-        self._field_label(frm, "Trạng thái:").grid(row=8, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Trạng thái:").grid(row=10, column=0, sticky="e", pady=5, padx=(0, 8))
         self.cbo_status = ttk.Combobox(frm, values=list(STATUS_LABELS_VI.values()),
                                         state="readonly", width=36, font=FONT_BODY)
         self.cbo_status.set(STATUS_LABELS_VI["Unpaid"])
-        self.cbo_status.grid(row=8, column=1, sticky="w", pady=5)
+        self.cbo_status.grid(row=10, column=1, sticky="w", pady=5)
 
         # Thanh toán
-        self._field_label(frm, "Thanh toán:").grid(row=9, column=0, sticky="e", pady=5, padx=(0, 8))
+        self._field_label(frm, "Thanh toán:").grid(row=11, column=0, sticky="e", pady=5, padx=(0, 8))
         self.cbo_payment = ttk.Combobox(frm, values=list(PAYMENT_LABELS_VI.values()),
                                          state="readonly", width=36, font=FONT_BODY)
         self.cbo_payment.set(PAYMENT_LABELS_VI["Cash"])
-        self.cbo_payment.grid(row=9, column=1, sticky="w", pady=5)
+        self.cbo_payment.grid(row=11, column=1, sticky="w", pady=5)
 
         # Nút chức năng
         btn_frm = tk.Frame(frm, bg=COLOR_CARD)
-        btn_frm.grid(row=10, column=0, columnspan=2, pady=(14, 4))
+        btn_frm.grid(row=12, column=0, columnspan=2, pady=(14, 4))
         ttk.Button(btn_frm, text="Tạo hóa đơn", style="Create.TButton",
                    command=self.on_create).pack(side="left", padx=5)
-        ttk.Button(btn_frm, text="Cập nhật", style="Update.TButton",
-                   command=self.on_update).pack(side="left", padx=5)
+        self.btn_update = ttk.Button(btn_frm, text="Cập nhật", style="Update.TButton",
+                                      command=self.on_update)
+        self.btn_update.pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Xuất PDF", style="Export.TButton",
                    command=self.on_export).pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Làm mới", style="Clear.TButton",
                    command=self.on_clear).pack(side="left", padx=5)
+
+    # -------------------------------------------------------------
+    # KHÓA / MỞ KHÓA FORM theo trạng thái hóa đơn
+    # -------------------------------------------------------------
+    def _apply_lock_state(self, locked):
+        """locked=True khi hóa đơn đang xem đã 'Đã thanh toán' -> vô hiệu hóa sửa."""
+        self.is_locked = locked
+        if locked:
+            self.lbl_lock_banner.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+            self.cbo_status.configure(state="disabled")
+            self.cbo_payment.configure(state="disabled")
+            self.entry_service.configure(state="disabled")
+            self.btn_update.configure(style="UpdateDisabled.TButton")
+        else:
+            self.lbl_lock_banner.grid_forget()
+            self.cbo_status.configure(state="readonly")
+            self.cbo_payment.configure(state="readonly")
+            self.entry_service.configure(state="readonly")
+            self.btn_update.configure(style="Update.TButton")
 
     # -------------------------------------------------------------
     # BẢNG DANH SÁCH (phần dưới)
@@ -285,7 +288,6 @@ class InvoiceFrame(tk.Frame):
         table_frm = self._labelframe(outer, "Danh sách hóa đơn")
         table_frm.pack(fill="both", expand=True)
 
-        # Bộ lọc nhanh
         filter_frm = tk.Frame(table_frm, bg=COLOR_CARD)
         filter_frm.pack(fill="x", pady=(0, 8))
         self._field_label(filter_frm, "Trạng thái:").pack(side="left")
@@ -308,7 +310,6 @@ class InvoiceFrame(tk.Frame):
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self.on_row_selected)
 
-        # Dòng xen màu + màu chữ theo trạng thái (giữ nguyên dữ liệu, chỉ đổi màu hiển thị)
         self.tree.tag_configure("oddrow", background=COLOR_ROW_ALT)
         self.tree.tag_configure("evenrow", background=COLOR_CARD)
         for status, color in STATUS_COLORS.items():
@@ -318,7 +319,6 @@ class InvoiceFrame(tk.Frame):
     # NẠP DỮ LIỆU
     # -------------------------------------------------------------
     def refresh_bookings(self):
-        """Đổ danh sách booking CHƯA có hóa đơn vào combobox."""
         self.bookings_cache.clear()
         rows = inv_srv.get_bookings_without_invoice()
         labels = []
@@ -331,7 +331,7 @@ class InvoiceFrame(tk.Frame):
     def refresh_table(self):
         status_label = self.cbo_filter_status.get() if hasattr(self, "cbo_filter_status") else "Tất cả"
         status_code = STATUS_LABELS_VI_REV.get(status_label, "All") if status_label != "Tất cả" else "All"
-        rows = inv_srv.get_invoices(status_filter=status_code)
+        rows = inv_srv.get_invoices(status_filter=status_code)  # amount đã được tính "sống" nếu còn Unpaid
         for item in self.tree.get_children():
             self.tree.delete(item)
         for i, r in enumerate(rows):
@@ -357,8 +357,8 @@ class InvoiceFrame(tk.Frame):
         self.var_checkin.set(str(b["checkin_date"]))
         self.var_checkout.set(str(b["checkout_date"]))
         self.var_price.set(str(b["price"]))
-        # Lấy đúng phí quá giờ đã tính sẵn bên Booking cho booking này
-        self.var_extra.set(str(b.get("late_fee") or 0))
+        self.var_late_fee.set(str(b.get("late_fee") or 0))
+        self.var_service.set(str(b.get("service_fee") or 0))  # lấy từ booking_supplies
         self.recalc_total()
 
     def recalc_total(self):
@@ -366,9 +366,10 @@ class InvoiceFrame(tk.Frame):
         b = self.bookings_cache.get(label)
         if not b:
             return
-        extra = float(b.get("late_fee") or 0)  # phí quá giờ lấy từ booking, không nhập tay
+        late_fee = float(b.get("late_fee") or 0)
+        service_fee = float(b.get("service_fee") or 0)  # luôn lấy từ DB, không nhập tay
         nights = inv_srv.calc_nights(b["checkin_date"], b["checkout_date"])
-        total = inv_srv.calc_total(b["price"], nights, extra)
+        total = inv_srv.calc_total(b["price"], nights, late_fee, service_fee)
         self.var_total.set(f"{total:,.0f}")
 
     def on_create(self):
@@ -395,6 +396,12 @@ class InvoiceFrame(tk.Frame):
             messagebox.showerror("Lỗi", str(e))
 
     def on_update(self):
+        if self.is_locked:
+            messagebox.showwarning(
+                "Không thể sửa",
+                "Hóa đơn này đã Đã thanh toán nên không thể chỉnh sửa nữa."
+            )
+            return
         if not self.current_invoice_id:
             messagebox.showwarning("Thông báo", "Vui lòng chọn một hóa đơn trong danh sách trước.")
             return
@@ -402,6 +409,8 @@ class InvoiceFrame(tk.Frame):
             total = float(self.var_total.get().replace(",", ""))
             status_code = STATUS_LABELS_VI_REV.get(self.cbo_status.get(), "Unpaid")
             payment_code = PAYMENT_LABELS_VI_REV.get(self.cbo_payment.get(), "Cash")
+            # amount = tổng tiền ĐANG hiển thị (đã tính theo giá phòng + phí dịch vụ hiện tại) ->
+            # nếu status_code là 'Paid', số này sẽ được chốt cứng vĩnh viễn từ đây.
             inv_srv.update_invoice(
                 self.current_invoice_id,
                 amount=total,
@@ -409,6 +418,14 @@ class InvoiceFrame(tk.Frame):
                 payment_method=payment_code,
             )
             messagebox.showinfo("Thành công", "Đã cập nhật hóa đơn.")
+            self.refresh_table()
+            # Tải lại để phản ánh đúng trạng thái khóa mới nhất
+            inv = inv_srv.get_invoice_full(self.current_invoice_id)
+            if inv:
+                self._apply_lock_state(inv["status"] == "Paid")
+        except inv_srv.InvoiceLockedError as e:
+            messagebox.showwarning("Không thể sửa", str(e))
+            self._apply_lock_state(True)
             self.refresh_table()
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
@@ -431,10 +448,12 @@ class InvoiceFrame(tk.Frame):
         self.var_checkin.set("")
         self.var_checkout.set("")
         self.var_price.set("0")
-        self.var_extra.set("0")
+        self.var_late_fee.set("0")
+        self.var_service.set("0")
         self.var_total.set("0")
         self.cbo_status.set(STATUS_LABELS_VI["Unpaid"])
         self.cbo_payment.set(PAYMENT_LABELS_VI["Cash"])
+        self._apply_lock_state(False)
 
     def on_row_selected(self, event=None):
         selected = self.tree.selection()
@@ -442,7 +461,7 @@ class InvoiceFrame(tk.Frame):
             return
         values = self.tree.item(selected[0], "values")
         self.current_invoice_id = int(values[0])
-        # Điền lại form từ dữ liệu đầy đủ trong DB
+        # Điền lại form từ dữ liệu đầy đủ + MỚI NHẤT trong DB (amount đã tính sống nếu Unpaid)
         inv = inv_srv.get_invoice_full(self.current_invoice_id)
         if not inv:
             return
@@ -451,16 +470,18 @@ class InvoiceFrame(tk.Frame):
         self.var_checkin.set(str(inv["checkin_date"]))
         self.var_checkout.set(str(inv["checkout_date"]))
         self.var_price.set(str(inv["price"]))
+        self.var_late_fee.set(str(inv.get("late_fee") or 0))
+        self.var_service.set(str(inv.get("service_fee") or 0))
         self.var_total.set(f"{float(inv['amount']):,.0f}")
         self.cbo_status.set(STATUS_LABELS_VI.get(inv["status"], inv["status"]))
         self.cbo_payment.set(PAYMENT_LABELS_VI.get(inv["payment_method"], inv["payment_method"]))
-        self.var_extra.set(str(inv.get("late_fee") or 0))  # phí quá giờ đã lưu ở bookings.extra_fee
+        self._apply_lock_state(inv["status"] == "Paid")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Hóa đơn")
-    root.geometry("650x720")
+    root.geometry("650x800")
     root.configure(bg=COLOR_BG)
     InvoiceFrame(root).pack(fill="both", expand=True)
     root.mainloop()
